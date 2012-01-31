@@ -9,6 +9,7 @@ package org.appcelerator.titanium.view;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
+import org.appcelerator.kroll.common.TiJSErrorDialog;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.util.TiConvert;
 
@@ -101,6 +102,11 @@ public class Ti2DMatrix extends KrollProxy
 		}
 	}
 
+	@Kroll.method
+	public void displayErrorDialog() {
+		TiJSErrorDialog.openErrorDialog("Test Error", "Hi there", "Source", 4, "Line Source", 12);
+	}
+	
 	@Kroll.method
 	public Ti2DMatrix translate(double x, double y)
 	{

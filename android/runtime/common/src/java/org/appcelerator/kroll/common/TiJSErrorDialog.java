@@ -13,6 +13,7 @@ import org.appcelerator.kroll.KrollRuntime;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.TabActivity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -63,6 +64,7 @@ public class TiJSErrorDialog implements Handler.Callback
 
 		return mainHandler;
 	}
+	
 
 	public static void openErrorDialog(final String title, final String message, final String sourceName, final int line,
 		final String lineSource, final int lineOffset)
@@ -191,17 +193,23 @@ public class TiJSErrorDialog implements Handler.Callback
 			}
 		};
 
-		AlertDialog.Builder builder = new AlertDialog.Builder(context)
+		Activity dActivity = (Activity) context;
+		AlertDialog.Builder builder = new AlertDialog.Builder(dActivity)
 			.setTitle(error.title).setView(layout)
 			.setPositiveButton("Kill", clickListener)
 			.setNeutralButton("Continue", clickListener)
 			.setCancelable(false);
-
+		AlertDialog eDialog = builder.create();
 		// TODO: Enable when we have fastdev working
 		// if (TiFastDev.isFastDevEnabled()) {
 		// builder.setNegativeButton("Reload", clickListener);
 		// }
-		builder.create().show();
+		//if (!dActivity.isFinishing()) {
+		//	if (dActivity instanceof TiBaseActivity) {
+		//		((TiBaseActivity)dActivity)
+		//	}
+		eDialog.show();
+		//}  
 	}
 
 	protected static void reload(String sourceName)
