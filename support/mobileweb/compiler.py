@@ -574,6 +574,7 @@ class Compiler(object):
 		# TODO: using an AST, scan the entire project's source and identify all dependencies
 		self.project_dependencies += [
 			'Ti',
+			'Ti/Accelerometer',
 			'Ti/API',
 			'Ti/App',
 			'Ti/App/Properties',
@@ -581,6 +582,7 @@ class Compiler(object):
 			'Ti/Buffer',
 			'Ti/Codec',
 			'Ti/Facebook',
+			'Ti/Facebook/Loginbutton',
 			'Ti/Filesystem',
 			'Ti/Filesystem/File',
 			'Ti/Filesystem/FileStream',
@@ -598,6 +600,7 @@ class Compiler(object):
 			'Ti/UI/View',
 			'Ti/Media/VideoPlayer',
 			'Ti/UI',
+			'Ti/UI/MobileWeb',
 			'Ti/UI/TableViewRow',
 			'Ti/UI/Tab',
 			'Ti/UI/TabGroup',
@@ -624,6 +627,7 @@ class Compiler(object):
 			'Ti/UI/TextArea',
 			'Ti/UI/TextField',
 			'Ti/UI/WebView',
+			'Ti/UI/MobileWeb/NavigationGroup',
 			'Ti/Utils'
 		]
 	
