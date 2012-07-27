@@ -22,6 +22,7 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.os.Build;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextUtils.TruncateAt;
 import android.text.TextWatcher;
@@ -139,6 +140,14 @@ public class TiUIText extends TiUIView
 			tv.setText(d.getString(TiC.PROPERTY_VALUE));
 		}
 		
+		if (d.containsKey(TiC.PROPERTY_MAX_LENGTH)) {
+			int maxLength = TiConvert.toInt(d, TiC.PROPERTY_MAX_LENGTH);
+			if (maxLength > -1) {
+				InputFilter[] FilterArray = new InputFilter[1];
+				FilterArray[0] = new InputFilter.LengthFilter(maxLength);
+				tv.setFilters(FilterArray);
+			}
+		}
 		if (d.containsKey(TiC.PROPERTY_COLOR)) {
 			tv.setTextColor(TiConvert.toColor(d, TiC.PROPERTY_COLOR));
 		}
@@ -195,6 +204,19 @@ public class TiUIText extends TiUIView
 			tv.setEnabled(TiConvert.toBoolean(newValue));
 		} else if (key.equals(TiC.PROPERTY_VALUE)) {
 			tv.setText((String) newValue);
+		} else if (key.equals(TiC.PROPERTY_MAX_LENGTH)) {
+			int maxLength = TiConvert.toInt(newValue);
+			//truncate if current text exceeds max length
+			Editable currentText = tv.getText();
+			if (maxLength >= 0 && currentText.length() > maxLength) {
+				CharSequence truncateText = currentText.subSequence(0, maxLength);
+				tv.setText(truncateText);
+			}
+			if (maxLength >= 0) {
+				InputFilter[] FilterArray = new InputFilter[1];
+				FilterArray[0] = new InputFilter.LengthFilter(maxLength);
+				tv.setFilters(FilterArray);
+			}
 		} else if (key.equals(TiC.PROPERTY_COLOR)) {
 			tv.setTextColor(TiConvert.toColor((String) newValue));
 		} else if (key.equals(TiC.PROPERTY_HINT_TEXT)) {
