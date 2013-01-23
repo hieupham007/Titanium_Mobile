@@ -14,9 +14,7 @@ var ti = require('titanium-sdk'),
 	Buffer = require('buffer').Buffer,
 	wrench = require('wrench'),
 	cleanCSS = require('clean-css'),
-	uglify = require('uglify-js'),
-	uglifyProcessor = uglify.uglify,
-	uglifyParser = uglify.parser,
+	UglifyJS = require('uglify-js'),
 	DOMParser = require('xmldom').DOMParser,
 	uuid = require('node-uuid'),
 	appc = require('node-appc'),
@@ -62,6 +60,9 @@ var ti = require('titanium-sdk'),
 		'dist-appstore': 'production',
 		'dist-adhoc': 'production'
 	};
+
+// silence uglify's default warn mechanism
+UglifyJS.AST_Node.warn_function = function () {};
 
 exports.config = function (logger, config, cli) {
 	return function (callback) {
@@ -120,10 +121,6 @@ exports.config = function (logger, config, cli) {
 					retina: {
 						desc: __('use the retina version of the iOS Simulator')
 					},*/
-					'skip-js-minify': {
-						default: false,
-						desc: __('bypasses JavaScript minification; %s builds are never minified', 'simulator'.cyan)
-					},
 					xcode: {
 						// secret flag to perform Xcode pre-compile build step
 						hidden: true
@@ -948,7 +945,7 @@ function build(logger, config, cli, finished) {
 					if (this.keychain) {
 						xcodeArgs.push('OTHER_CODE_SIGN_FLAGS=--keychain ' + this.keychain);
 					}
-					this.codeSignEntitlements && xcodeArgs.push('CODE_SIGN_ENTITLEMENTS=Resources/Entitlements.plist');
+					this.codeSignEntitlements && xcodeArgs.push('CODE_SIGN_ENTITLEMENTS=Entitlements.plist');
 				}
 				
 				if (this.target == 'device') {
@@ -1195,7 +1192,7 @@ build.prototype = {
 						.replace(/__DEBUGGER_PORT__/g, parts.length > 1 ? parts[1] : '')
 						.replace(/__DEBUGGER_AIRKEY__/g, parts.length > 2 ? parts[2] : '')
 						.replace(/__DEBUGGER_HOSTS__/g, parts.length > 3 ? parts[3] : ''),
-			dest = path.join(this.buildDir, 'Resources', 'debugger.plist');
+			dest = path.join(this.xcodeAppDir, 'debugger.plist');
 		
 		if (!afs.exists(dest) || fs.readFileSync(dest).toString() != plist) {
 			this.forceXcode = true;
@@ -1224,7 +1221,7 @@ build.prototype = {
 				contents = plist.toString('xml');
 			}
 			this.codeSignEntitlements = true;
-			fs.writeFile(path.join(this.buildDir, 'Resources', 'Entitlements.plist'), contents, callback);
+			fs.writeFile(path.join(this.buildDir, 'Entitlements.plist'), contents, callback);
 		} else {
 			callback();
 		}
@@ -1267,7 +1264,7 @@ build.prototype = {
 			};
 		
 		this.logger.info(__('Copying Xcode iOS files'));
-		['Classes', 'headers', 'Resources'].forEach(function (dir) {
+		['Classes', 'headers'].forEach(function (dir) {
 			afs.copyDirSyncRecursive(
 				path.join(this.titaniumIosSdkPath, dir),
 				path.join(this.buildDir, dir),
@@ -1320,7 +1317,7 @@ build.prototype = {
 			proj,
 			'Pre-Compile',
 			'if [ \\"x$TITANIUM_CLI_XCODEBUILD\\" == \\"x\\" ]; then NO_COLORS=\\"--no-colors\\"; else NO_COLORS=\\"\\"; fi\\n' +
-			(process.execPath || 'node') + ' \\"' + this.cli.argv.$0.replace(/^node /, '') + '\\" build --platform ' +
+			(process.execPath || 'node') + ' \\"' + this.cli.argv.$0.replace(/^(.+\/)*node /, '') + '\\" build --platform ' +
 				this.platformName + ' --sdk ' + this.titaniumSdkVersion + ' --no-prompt --no-banner $NO_COLORS --xcode\\nexit $?'
 		);
 		proj = injectCompileShellScript(
@@ -1718,25 +1715,19 @@ build.prototype = {
 		var paths = [
 				path.join(this.projectDir, 'Resources', 'iphone'),
 				path.join(this.projectDir, 'Resources', 'ios'),
-				path.join(this.titaniumIosSdkPath, 'resources'),
+				path.join(this.titaniumIosSdkPath, 'resources')
 			],
-			i = 0,
-			src,
-			dest = path.join(this.buildDir, 'Resources'),
-			copyOpts = {
-				logger: this.logger.debug
-			};
+			len = paths.length,
+			i, src;
 		
-		for (; i < paths.length; i++) {
+		for (i = 0; i < len; i++) {
 			if (afs.exists(src = path.join(paths[i], this.tiapp.icon))) {
-				afs.copyFileSync(src, this.xcodeAppDir, copyOpts);
+				afs.copyFileSync(src, this.xcodeAppDir, {
+					logger: this.logger.debug
+				});
 				break;
 			}
 		}
-		
-		fs.readdirSync(src = path.join(this.titaniumIosSdkPath, 'resources'), function (file) {
-			afs.copyFileSync(path.join(src, file), dest, copyOpts);
-		});
 		
 		callback();
 	},
@@ -1813,41 +1804,28 @@ build.prototype = {
 	},
 	
 	copyLocalizedSplashScreens: function (callback) {
-		
-		var copyOpts = {
-				logger: this.logger.debug
-			};
 		ti.i18n.splashScreens(this.projectDir, this.logger).forEach(function (splashImage) {
 			var token = splashImage.split('/'),
-				lang = token[token.length-2],
+				file = token.pop(),
+				lang = token.pop(),
 				lprojDir = path.join(this.xcodeAppDir, lang + '.lproj'),
-				file = token[token.length-1],
-				globalFile = path.join(this.xcodeAppDir, file),
-				resourcesDir = path.join(this.buildDir, 'Resources'),
-				projFile = path.join(resourcesDir, file);
+				globalFile = path.join(this.xcodeAppDir, file);
 			
-			//This would never need to run. But just to be safe.
+			// this would never need to run. But just to be safe
 			if (!afs.exists(lprojDir)) {
 				this.logger.debug(__('Creating lproj folder %s', lprojDir.cyan));
 				wrench.mkdirSyncRecursive(lprojDir);
 			}
 			
-			afs.copyFileSync(splashImage, lprojDir, copyOpts);
-			
-			this.logger.debug(__('Checking if %s exists in global space', file.cyan));
-			
-			// Check for it in the root of the xcode build folder.
+			// check for it in the root of the xcode build folder
 			if (afs.exists(globalFile)) {
 				this.logger.debug(__('Removing File %s, as it is being localized', globalFile.cyan));
 				fs.unlinkSync(globalFile);
 			}
 			
-			// Check in the Resources of Ti-build folder.
-			if (afs.exists(projFile)) {
-				this.logger.debug(__('Removing File %s, as it is being localized', projFile.cyan));
-				fs.unlinkSync(projFile);
-			}
-			
+			afs.copyFileSync(splashImage, lprojDir, {
+				logger: this.logger.debug
+			});
 		}, this);
 		
 		callback();
@@ -2153,7 +2131,7 @@ build.prototype = {
 	
 	compileJSS: function (callback) {
 		ti.jss.load(path.join(this.projectDir, 'Resources'), deviceFamilyNames[this.deviceFamily], this.logger, function (results) {
-			var appStylesheet = path.join(this.buildDir, 'Resources', 'stylesheet.plist'),
+			var appStylesheet = path.join(this.xcodeAppDir, 'stylesheet.plist'),
 				plist = new appc.plist();
 			appc.util.mix(plist, results);
 			fs.writeFile(appStylesheet, plist.toString('xml'), function () {
@@ -2246,15 +2224,7 @@ build.prototype = {
 					this.logger.debug(__('Writing minifying JavaScript file: %s', c.to.cyan));
 					fs.writeFileSync(
 						c.to,
-						uglifyProcessor.gen_code(
-							uglifyProcessor.ast_squeeze(
-								uglifyProcessor.ast_mangle(
-									uglifyParser.parse(
-										fs.readFileSync(c.from).toString().replace(/Titanium\./g,'Ti.')
-									)
-								)
-							)
-						)
+						UglifyJS.minify(c.from).code.replace(/Titanium\./g,'Ti.')
 					);
 				}, this);
 			}
@@ -2280,22 +2250,27 @@ build.prototype = {
 	},
 	
 	findSymbols: function (ast) {
-		function scan(node) {
-			if (node[0] == 'name') {
-				return node[1] == 'Ti' ? node[1] : '';
-			} else if (node[0] == 'dot') {
-				var s = scan(node[1]);
-				return s && node.length > 2 ? s + '.' + node[2] : '';
-			}
-		}
+		var walker = new UglifyJS.TreeWalker(function (node, descend) {
+				if (node instanceof UglifyJS.AST_SymbolRef && node.name == 'Ti') {
+					var p = walker.stack,
+						buffer = [],
+						i = p.length - 1; // we already know the top of the stack is Ti
+					
+					// loop until 2nd from bottom of stack since the bottom is the toplevel node which we don't care about
+					while (--i) {
+						if (p[i] instanceof UglifyJS.AST_Dot) {
+							buffer.push(p[i].property);
+						} else if (p[i] instanceof UglifyJS.AST_Symbol || p[i] instanceof UglifyJS.AST_SymbolRef) {
+							buffer.push(p[i].name);
+						} else {
+							break;
+						}
+					}
+					buffer.length && this.addSymbol(buffer.join('.'));
+				}
+			}.bind(this));
 		
-		appc.astwalker(ast, {
-			dot: function (node, next) {
-				var s = scan(node);
-				s && this.addSymbol(s.substring(3));
-				next();
-			}.bind(this)
-		});
+		ast.walk(walker);
 	},
 	
 	addSymbol: function (symbol) {
@@ -2316,37 +2291,27 @@ build.prototype = {
 	},
 	
 	compileJsFile: function (id, file) {
-		var contents = fs.readFileSync(file).toString().replace(/Titanium\./g,'Ti.');
+		var original = fs.readFileSync(file).toString(),
+			contents = original.replace(/Titanium\./g,'Ti.'),
+			ast;
+		
 		try {
-			var ast = uglifyParser.parse(contents);
-			
-			if (!this.cli.argv['skip-js-minify'] && this.deployType != 'development') {
-				contents = uglifyProcessor.gen_code(
-					uglifyProcessor.ast_squeeze(
-						uglifyProcessor.ast_mangle(ast)
-					)
-				);
-			}
-			
-			this.logger.info(__('Finding Titanium symbols in file %s', file.cyan));
-			this.findSymbols(ast);
-			
-			id = path.join(this.assetsDir, id);
-			wrench.mkdirSyncRecursive(path.dirname(id));
-			
-			this.logger.debug(__('Writing JavaScript file: %s', id.cyan));
-			fs.writeFileSync(id, contents);
+			ast = UglifyJS.parse(contents, { filename: file })
 		} catch (ex) {
 			this.logger.error(__('Failed to minify %s', file));
-			this.logger.error(__('%s [line %s, column %s]', ex.message, ex.line, ex.col));
+			if (ex.line) {
+				this.logger.error(__('%s [line %s, column %s]', ex.message, ex.line, ex.col));
+			} else {
+				this.logger.error(__('%s', ex.message));
+			}
 			try {
-				contents = contents.split('\n');
-				if (ex.line && ex.line <= contents.length) {
+				original = original.split('\n');
+				if (ex.line && ex.line <= original.length) {
 					this.logger.error('');
-					this.logger.error('    ' + contents[ex.line-1]);
+					this.logger.error('    ' + original[ex.line-1]);
 					if (ex.col) {
 						var i = 0,
-							len = ex.col - 1;
+							len = ex.col;
 							buffer = '    ';
 						for (; i < len; i++) {
 							buffer += '-';
@@ -2358,6 +2323,26 @@ build.prototype = {
 			} catch (ex2) {}
 			process.exit(1);
 		}
+		
+		this.logger.info(__('Finding Titanium symbols in file %s', file.cyan));
+		this.findSymbols(ast);
+		
+		if (!this.cli.argv['skip-js-minify'] && this.deployType != 'development') {
+			ast.figure_out_scope();
+			ast = ast.transform(UglifyJS.Compressor());
+			ast.figure_out_scope();
+			ast.compute_char_frequency();
+			ast.mangle_names();
+			var stream = UglifyJS.OutputStream();
+			ast.print(stream);
+			contents = stream.toString();
+		}
+		
+		id = path.join(this.assetsDir, id);
+		wrench.mkdirSyncRecursive(path.dirname(id));
+		
+		this.logger.debug(__('Writing JavaScript file: %s', id.cyan));
+		fs.writeFileSync(id, contents);
 	},
 	
 	xcodePrecompilePhase: function (finished) {
