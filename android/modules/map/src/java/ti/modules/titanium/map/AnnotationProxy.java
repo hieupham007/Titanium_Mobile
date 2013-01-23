@@ -1,12 +1,10 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2012 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2013 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
 package ti.modules.titanium.map;
-
-import java.lang.ref.WeakReference;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
@@ -14,6 +12,8 @@ import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.TiContext;
+
+import com.google.android.gms.maps.model.MarkerOptions;
 
 @Kroll.proxy(creatableInModule=MapModule.class, propertyAccessors = {
 	TiC.PROPERTY_ANIMATE,
@@ -35,9 +35,9 @@ import org.appcelerator.titanium.TiContext;
 public class AnnotationProxy extends KrollProxy
 {
 	private static final String TAG = "AnnotationProxy";
-	
-	private WeakReference<ViewProxy> viewProxy;
-	
+
+	private MarkerOptions marker;
+
 	public AnnotationProxy()
 	{
 		super();
@@ -50,11 +50,6 @@ public class AnnotationProxy extends KrollProxy
 		this();
 	}
 
-	public void setViewProxy(ViewProxy viewProxy)
-	{
-		this.viewProxy = new WeakReference<ViewProxy>(viewProxy);
-	}
-
 	@Override
 	protected KrollDict getLangConversionTable() {
 		KrollDict table = new KrollDict();
@@ -63,15 +58,5 @@ public class AnnotationProxy extends KrollProxy
 		return table;
 	}
 
-	@Override
-	public void onPropertyChanged(String name, Object value)
-	{
-		super.onPropertyChanged(name, value);
-		if (viewProxy != null && viewProxy.get() != null) {
-			TiMapView mapView = viewProxy.get().getMapView();
-			if (mapView != null) {
-				mapView.updateAnnotations();
-			}
-		}
-	}
+	
 }

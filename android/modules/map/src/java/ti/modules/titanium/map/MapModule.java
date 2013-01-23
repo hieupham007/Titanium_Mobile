@@ -10,6 +10,8 @@ import org.appcelerator.kroll.KrollModule;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.titanium.TiContext;
 
+import com.google.android.gms.maps.GoogleMap;
+
 @Kroll.module
 public class MapModule extends KrollModule
 {
@@ -17,10 +19,16 @@ public class MapModule extends KrollModule
 	@Kroll.constant public static final int ANNOTATION_RED = 1;
 	@Kroll.constant public static final int ANNOTATION_GREEN = 2;
 	@Kroll.constant public static final int ANNOTATION_PURPLE = 3;
+	
+	@Kroll.constant public static final int NORMAL_TYPE = GoogleMap.MAP_TYPE_NORMAL;
+	@Kroll.constant public static final int TERRAIN_TYPE = GoogleMap.MAP_TYPE_TERRAIN;
+	@Kroll.constant public static final int SATELLITE_TYPE = GoogleMap.MAP_TYPE_SATELLITE;
 
-	@Kroll.constant public static final int STANDARD_TYPE = TiMapView.MAP_VIEW_STANDARD;
-	@Kroll.constant public static final int SATELLITE_TYPE = TiMapView.MAP_VIEW_SATELLITE;
-	@Kroll.constant public static final int HYBRID_TYPE = TiMapView.MAP_VIEW_HYBRID;
+
+
+
+
+
 
 	public MapModule()
 	{

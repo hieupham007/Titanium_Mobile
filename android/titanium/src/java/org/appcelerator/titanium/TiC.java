@@ -1991,6 +1991,11 @@ public class TiC
 	/**
 	 * @module.api
 	 */
+	public static final String PROPERTY_TRAFFIC = "traffic";
+
+	/**
+	 * @module.api
+	 */
 	public static final String PROPERTY_TRANSFORM = "transform";
 
 	/**
@@ -2133,6 +2138,10 @@ public class TiC
 	 */
 	public static final String PROPERTY_ZINDEX = "zIndex";
 
+	/**
+	 * @module.api
+	 */
+	public static final String PROPERTY_ZOOM = "zoom";
 	/**
 	 * @module.api
 	 */
