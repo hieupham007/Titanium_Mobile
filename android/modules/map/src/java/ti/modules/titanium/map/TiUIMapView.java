@@ -1,15 +1,18 @@
 package ti.modules.titanium.map;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
+import org.appcelerator.kroll.common.TiMessenger;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.TiConvert;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Message;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,43 +26,37 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 
 public class TiUIMapView extends TiUIFragment {
-	
-	public static class TiMapFragment extends SupportMapFragment {
-		
-		public static TiMapFragment newInstance() {
-			return new TiMapFragment();
-		}
-		
-		public View onCreateView(LayoutInflater arg0, ViewGroup arg1, Bundle arg2) {
-			View v = super.onCreateView(arg0, arg1, arg2);
-			if (mapView != null && dict != null) {
-				mapView.processProperties(dict);
-				dict = null;
-			}
-		    return v;
-		}
-		
-		public void onCreate(Bundle b) {
-			super.onCreate(b);
-		}
-	}
 
 	private GoogleMap map;
-	protected static TiUIMapView mapView;
-	protected static KrollDict dict;
 	protected boolean animate = false;
 	protected boolean preLayout = true;
+	protected ArrayList<Marker> markers;
 
-	public TiUIMapView(TiViewProxy proxy, Activity activity) {
+	public static final int MSG_VIEW_CREATED = 600;
+	public TiUIMapView(final TiViewProxy proxy, Activity activity) {
 		super(proxy, activity);
-		mapView = this;
+		markers = new ArrayList<Marker>();
 	}
 
 	@Override
 	protected Fragment createFragment() {
-		return TiMapFragment.newInstance();
+		return SupportMapFragment.newInstance();
+	}
+
+	
+	protected void processPreloadAnnotations() {
+		ArrayList<AnnotationProxy> annotations = ((ViewProxy)proxy).getPreloadAnnotations();
+		for (int i = 0; i < annotations.size(); i++) {
+			addAnnotation(annotations.get(i));
+		}
+	}
+	
+	protected void onViewCreated() {
+		processMapProperties(proxy.getProperties());
+		processPreloadAnnotations();
 	}
 
 	@Override
@@ -67,9 +64,13 @@ public class TiUIMapView extends TiUIFragment {
 		super.processProperties(d);
 
 		if (getMap() == null) {
-			dict = d;
 			return;
 		}
+		processMapProperties(d);
+	}
+	
+	public void processMapProperties(KrollDict d) {
+
 		if (d.containsKey(TiC.PROPERTY_USER_LOCATION)) {
 			setUserLocation(d.getBoolean(TiC.PROPERTY_USER_LOCATION));
 		}
@@ -85,7 +86,10 @@ public class TiUIMapView extends TiUIFragment {
 		if (d.containsKey(TiC.PROPERTY_REGION)) {
 			updateCamera(d.getKrollDict(TiC.PROPERTY_REGION));
 		}
-		
+		if (d.containsKey(TiC.PROPERTY_ANNOTATIONS)) {
+			Object[] annotations = (Object[]) d.get(TiC.PROPERTY_ANNOTATIONS);
+			addAnnotations(annotations);
+		}
 	}
 
 	@Override
@@ -100,11 +104,20 @@ public class TiUIMapView extends TiUIFragment {
 		if (key.equals(TiC.PROPERTY_REGION)) {
 			updateCamera((HashMap) newValue);
 		}
+		if (key.equals(TiC.PROPERTY_TRAFFIC)) {
+			setTrafficEnabled(TiConvert.toBoolean(newValue));
+		}
+		if (key.equals(TiC.PROPERTY_ANIMATE)) {
+			animate = TiConvert.toBoolean(newValue);
+		}
+		if (key.equals(TiC.PROPERTY_ANNOTATIONS)) {
+			updateAnnotations((Object[]) newValue);
+		}
 		super.propertyChanged(key, oldValue, newValue, proxy);
 
 	}
 
-	private GoogleMap getMap() {
+	public GoogleMap getMap() {
 		if (map == null) {
 			map = ((SupportMapFragment) getFragment()).getMap();
 		}
@@ -164,6 +177,7 @@ public class TiUIMapView extends TiUIFragment {
 						map.setOnCameraChangeListener(null);
 						preLayout = false;
 					}
+
 				});
 				return;
 			} else {
@@ -185,4 +199,64 @@ public class TiUIMapView extends TiUIFragment {
 			map.moveCamera(camUpdate);
 		}
 	}
+	
+	protected void addAnnotation(AnnotationProxy annotation) {
+		annotation.processOptions();
+		//add annotation to map view
+		Marker m = map.addMarker(annotation.getMarkerOptions());
+		annotation.setMarker(m);
+		markers.add(m);
+	}
+
+	protected void addAnnotations(Object[] annotations) 
+	{
+		for (int i = 0; i < annotations.length; i++) {
+			Object obj = annotations[i];
+			if (obj instanceof AnnotationProxy) {
+				AnnotationProxy annotation = (AnnotationProxy) obj;
+				addAnnotation(annotation);
+			}
+		}
+	}
+	
+	protected void updateAnnotations(Object[] annotations)
+	{
+		//First, remove old annotations from map
+		removeAllAnnotations();
+		//Then we add new annotations to the map
+		addAnnotations(annotations);
+	}
+	
+	protected void removeAllAnnotations() {
+		for (int i = 0; i < markers.size(); i++) {
+			markers.get(i).remove();
+			markers.remove(i);
+		}
+	}
+	
+	protected void removeAnnotation(Object annotation) {
+		if (annotation instanceof AnnotationProxy) {
+			Marker removedMarker = ((AnnotationProxy)annotation).getMarker();
+			for (int i = 0; i < markers.size(); i++) {
+				Marker marker = markers.get(i);
+				if (removedMarker.equals(marker)) {
+					marker.remove();
+					markers.remove(i);
+					return;
+				}
+			}
+		}
+		if (annotation instanceof String) {
+			String title = (String)annotation;
+			for (int i = 0; i < markers.size(); i++) {
+				Marker marker = markers.get(i);
+				if (marker.getTitle().equals(title)) {
+					marker.remove();
+					markers.remove(i);
+					return;
+				}
+			}
+		}
+	}
+
 }

@@ -952,6 +952,11 @@ public class TiC
 	 * @module.api
 	 */
 	public static final String PROPERTY_DOMESTIC_PARTNER = "domesticPartner";
+	
+	/**
+	 * @module.api
+	 */
+	public static final String PROPERTY_DRAGGABLE = "draggable";
 
 	/**
 	 * @module.api
