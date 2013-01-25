@@ -6,6 +6,8 @@
  */
 package ti.modules.titanium.map;
 
+import java.lang.ref.WeakReference;
+
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
@@ -13,6 +15,7 @@ import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.util.TiConvert;
 
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -22,19 +25,19 @@ import com.google.android.gms.maps.model.MarkerOptions;
 	TiC.PROPERTY_TITLE,
 	TiC.PROPERTY_LATITUDE,
 	TiC.PROPERTY_LONGITUDE,
-	TiC.PROPERTY_DRAGGABLE
+	TiC.PROPERTY_DRAGGABLE,
+	TiC.PROPERTY_IMAGE
 })
 public class AnnotationProxy extends KrollProxy
 {
 	private static final String TAG = "AnnotationProxy";
 
 	private MarkerOptions markerOptions;
-	private Marker marker;
+	private TiMarker marker;
 
 	public AnnotationProxy()
 	{
 		super();
-		
 		markerOptions = new MarkerOptions();
 	}
 
@@ -73,19 +76,43 @@ public class AnnotationProxy extends KrollProxy
 		if (hasProperty(TiC.PROPERTY_DRAGGABLE)) {
 			markerOptions.draggable(TiConvert.toBoolean(getProperty(TiC.PROPERTY_DRAGGABLE)));
 		}
-		
+		if (hasProperty(TiC.PROPERTY_IMAGE)) {
+			handleImage(getProperty(TiC.PROPERTY_IMAGE));
+		}
 	}
 	
+	private void handleImage(Object image) {
+		//image path 
+		if (image instanceof String) {
+			String path = "Resources/" + image;
+			markerOptions.icon(BitmapDescriptorFactory.fromAsset(path));
+		}
+	}
+
 	public MarkerOptions getMarkerOptions() {
 		return markerOptions;
 	}
 	
-	public void setMarker(Marker m) {
+	public void setTiMarker(TiMarker m) {
 		marker = m;
 	}
 	
-	public Marker getMarker() {
+	public TiMarker getTiMarker() {
 		return marker;
+	}
+	
+	public void showInfo() {
+		Marker m = marker.getMarker();
+		if (m != null) {
+			m.showInfoWindow();
+		}
+	}
+	
+	public void hideInfo() {
+		Marker m = marker.getMarker();
+		if (m != null) {
+			m.hideInfoWindow();
+		}
 	}
 	
 }

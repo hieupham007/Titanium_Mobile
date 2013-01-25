@@ -25,12 +25,14 @@ import android.os.Message;
 	TiC.PROPERTY_USER_LOCATION,
 	TiC.PROPERTY_MAP_TYPE,
 	TiC.PROPERTY_REGION,
-	TiC.PROPERTY_TRAFFIC,
-	TiC.PROPERTY_ANNOTATIONS
+	TiC.PROPERTY_ANNOTATIONS,
+	"traffic"
 })
-public class ViewProxy extends TiViewProxy 
+public class ViewProxy extends TiViewProxy
 {
 	private static final String TAG = "MapViewProxy";
+	
+	private static final String TRAFFIC = "traffic";
 	
 	private static final int MSG_FIRST_ID = TiViewProxy.MSG_LAST_ID + 1;
 	
@@ -38,7 +40,11 @@ public class ViewProxy extends TiViewProxy
 	private static final int MSG_ADD_ANNOTATIONS = MSG_FIRST_ID + 501;
 	
 	private static final int MSG_REMOVE_ANNOTATION = MSG_FIRST_ID + 502;
-	private static final int MSG_REMOVE_ALL_ANNOTATIONS = MSG_FIRST_ID + 503;
+	private static final int MSG_REMOVE_ANNOTATIONS = MSG_FIRST_ID + 503;
+	private static final int MSG_REMOVE_ALL_ANNOTATIONS = MSG_FIRST_ID + 504;
+	
+	private static final int MSG_SELECT_ANNOTATION = MSG_FIRST_ID + 505;
+	private static final int MSG_DESELECT_ANNOTATION = MSG_FIRST_ID + 506;
 
 
 	
@@ -79,9 +85,30 @@ public class ViewProxy extends TiViewProxy
 			return true;
 		}
 		
+		case MSG_REMOVE_ANNOTATIONS: {
+			result = (AsyncResult) msg.obj;
+			handleRemoveAnnotations((Object[])result.getArg());
+			result.setResult(null);
+			return true;
+		}
+		
 		case MSG_REMOVE_ALL_ANNOTATIONS: {
 			result = (AsyncResult) msg.obj;
 			handleRemoveAllAnnotations();
+			result.setResult(null);
+			return true;
+		}
+		
+		case MSG_SELECT_ANNOTATION: {
+			result = (AsyncResult) msg.obj;
+			handleSelectAnnotation(result.getArg());
+			result.setResult(null);
+			return true;
+		}
+		
+		case MSG_DESELECT_ANNOTATION: {
+			result = (AsyncResult) msg.obj;
+			handleDeselectAnnotation(result.getArg());
 			result.setResult(null);
 			return true;
 		}
@@ -107,6 +134,7 @@ public class ViewProxy extends TiViewProxy
 	}
 	
 	private void handleAddAnnotation(AnnotationProxy annotation) {
+
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
 			TiUIMapView mapView = (TiUIMapView) peekView();
@@ -114,10 +142,16 @@ public class ViewProxy extends TiViewProxy
 				mapView.addAnnotation(annotation);
 
 			} else {
-				preloadAnnotations.add(annotation);
+				addPreloadAnnotation(annotation);
 			}
 		} else {
-			preloadAnnotations.add(annotation);
+			addPreloadAnnotation(annotation);
+		}
+	}
+	
+	private void addPreloadAnnotation(AnnotationProxy anno) {
+		if (!preloadAnnotations.contains(anno)) {
+			preloadAnnotations.add(anno);
 		}
 	}
 	
@@ -153,10 +187,22 @@ public class ViewProxy extends TiViewProxy
 		}
 	}
 	
-	@Kroll.method
-	public void removeAnnotation(Object annotation) {
+	public boolean isAnnotationValid(Object annotation) {
+		//Incorrect argument types
 		if (!(annotation instanceof AnnotationProxy || annotation instanceof String)) {
 			Log.e(TAG, "Unsupported argument type for removeAnnotation");
+			return false;
+		}
+		//Marker isn't on the map
+		if (annotation instanceof AnnotationProxy && ((AnnotationProxy)annotation).getTiMarker() == null) {
+			return false;
+		}
+		
+		return true;
+	}
+	@Kroll.method
+	public void removeAnnotation(Object annotation) {
+		if (!isAnnotationValid(annotation)) {
 			return;
 		}
 
@@ -168,11 +214,68 @@ public class ViewProxy extends TiViewProxy
 		
 	}
 	
+	@Kroll.method
+	public void removeAnnotations(Object annotations) {
+		if (TiApplication.isUIThread()) {
+			handleRemoveAnnotations((Object[])annotations);
+		} else {
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_REMOVE_ANNOTATIONS), annotations);
+		}
+	}
+	
+	public void handleRemoveAnnotations(Object[] annotations) {
+		for (int i = 0; i < annotations.length; i++) {
+			removeAnnotation(annotations[i]);
+		}
+	}
+	
 	public void handleRemoveAnnotation(Object annotation) {
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
 			TiUIMapView mapView = (TiUIMapView) peekView();
 			mapView.removeAnnotation(annotation);
+		}
+	}
+	
+	@Kroll.method
+	public void selectAnnotation(Object annotation) {
+		if (!isAnnotationValid(annotation)) {
+			return;
+		}
+
+		if (TiApplication.isUIThread()) {
+			handleSelectAnnotation(annotation);
+		} else {
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SELECT_ANNOTATION), annotation);
+		}
+	}
+	
+	public void handleSelectAnnotation(Object annotation) {
+		TiUIView view = peekView();
+		if (view instanceof TiUIMapView) {
+			TiUIMapView mapView = (TiUIMapView) peekView();
+			mapView.selectAnnotation(annotation);
+		}
+	}
+	
+	@Kroll.method
+	public void deselectAnnotation(Object annotation) {
+		if (!isAnnotationValid(annotation)) {
+			return;
+		}
+
+		if (TiApplication.isUIThread()) {
+			handleDeselectAnnotation(annotation);
+		} else {
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_DESELECT_ANNOTATION), annotation);
+		}
+	}
+	
+	public void handleDeselectAnnotation(Object annotation) {
+		TiUIView view = peekView();
+		if (view instanceof TiUIMapView) {
+			TiUIMapView mapView = (TiUIMapView) peekView();
+			mapView.deselectAnnotation(annotation);
 		}
 	}
 }

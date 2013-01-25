@@ -5,18 +5,12 @@ import java.util.HashMap;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
-import org.appcelerator.kroll.common.TiMessenger;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.TiConvert;
 
 import android.app.Activity;
-import android.os.Bundle;
-import android.os.Message;
 import android.support.v4.app.Fragment;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
 
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -28,17 +22,19 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 
-public class TiUIMapView extends TiUIFragment {
+public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClickListener, GoogleMap.OnMapClickListener{
 
 	private GoogleMap map;
 	protected boolean animate = false;
 	protected boolean preLayout = true;
-	protected ArrayList<Marker> markers;
+	protected ArrayList<TiMarker> timarkers;
+	
+	private static final String TRAFFIC = "traffic";
 
 	public static final int MSG_VIEW_CREATED = 600;
 	public TiUIMapView(final TiViewProxy proxy, Activity activity) {
 		super(proxy, activity);
-		markers = new ArrayList<Marker>();
+		timarkers = new ArrayList<TiMarker>();
 	}
 
 	@Override
@@ -57,6 +53,8 @@ public class TiUIMapView extends TiUIFragment {
 	protected void onViewCreated() {
 		processMapProperties(proxy.getProperties());
 		processPreloadAnnotations();
+		getMap().setOnMarkerClickListener(this);
+		getMap().setOnMapClickListener(this);
 	}
 
 	@Override
@@ -77,8 +75,8 @@ public class TiUIMapView extends TiUIFragment {
 		if (d.containsKey(TiC.PROPERTY_MAP_TYPE)) {
 			setMapType(d.getInt(TiC.PROPERTY_MAP_TYPE));
 		}
-		if (d.containsKey(TiC.PROPERTY_TRAFFIC)) {
-			setTrafficEnabled(d.getBoolean(TiC.PROPERTY_TRAFFIC));
+		if (d.containsKey(TRAFFIC)) {
+			setTrafficEnabled(d.getBoolean(TRAFFIC));
 		}
 		if (d.containsKey(TiC.PROPERTY_ANIMATE)) {
 			animate = d.getBoolean(TiC.PROPERTY_ANIMATE);
@@ -104,7 +102,7 @@ public class TiUIMapView extends TiUIFragment {
 		if (key.equals(TiC.PROPERTY_REGION)) {
 			updateCamera((HashMap) newValue);
 		}
-		if (key.equals(TiC.PROPERTY_TRAFFIC)) {
+		if (key.equals(TRAFFIC)) {
 			setTrafficEnabled(TiConvert.toBoolean(newValue));
 		}
 		if (key.equals(TiC.PROPERTY_ANIMATE)) {
@@ -201,11 +199,17 @@ public class TiUIMapView extends TiUIFragment {
 	}
 	
 	protected void addAnnotation(AnnotationProxy annotation) {
+		//if annotation already on map, remove it first then re-add it
+		TiMarker tiMarker = annotation.getTiMarker();
+		if (tiMarker != null) {
+			removeAnnotation(tiMarker);
+		}
 		annotation.processOptions();
 		//add annotation to map view
-		Marker m = map.addMarker(annotation.getMarkerOptions());
-		annotation.setMarker(m);
-		markers.add(m);
+		Marker marker = map.addMarker(annotation.getMarkerOptions());
+		tiMarker = new TiMarker(marker, annotation);
+		annotation.setTiMarker(tiMarker);
+		timarkers.add(tiMarker);
 	}
 
 	protected void addAnnotations(Object[] annotations) 
@@ -228,35 +232,121 @@ public class TiUIMapView extends TiUIFragment {
 	}
 	
 	protected void removeAllAnnotations() {
-		for (int i = 0; i < markers.size(); i++) {
-			markers.get(i).remove();
-			markers.remove(i);
+		for (int i = 0; i < timarkers.size(); i++) {
+			TiMarker timarker = timarkers.get(i);
+			timarker.getMarker().remove();
+			timarker.getProxy().setTiMarker(null);
+		}
+		timarkers.clear();
+	}
+	
+	private TiMarker findMarkerByTitle(String title) {
+		for (int i = 0; i < timarkers.size(); i++) {
+			TiMarker timarker = timarkers.get(i);
+			if (timarker.getMarker().getTitle().equals(title)) {
+				return timarker;
+			}
+		}
+		
+		return null;
+	}
+	protected void removeAnnotation(Object annotation) {
+		
+		if (annotation instanceof TiMarker) {
+			if (timarkers.contains(annotation)) {
+				TiMarker timarker = (TiMarker)annotation;
+				timarker.getMarker().remove();
+				timarker.getProxy().setTiMarker(null);
+				timarkers.remove(annotation);
+			}
+		}
+
+		if (annotation instanceof AnnotationProxy) {
+			TiMarker timarker = ((AnnotationProxy)annotation).getTiMarker();
+			for (int i = 0; i < timarkers.size(); i++) {
+				TiMarker temp = timarkers.get(i);
+				if (timarker.equals(temp)) {
+					temp.getMarker().remove();
+					temp.getProxy().setTiMarker(null);
+					timarkers.remove(i);
+					return;
+				}
+			}
+		}
+
+		if (annotation instanceof String) {
+			String title = (String)annotation;
+			TiMarker timarker = findMarkerByTitle(title);
+			if (timarker != null) {
+				timarker.getMarker().remove();
+				timarker.getProxy().setTiMarker(null);
+				timarkers.remove(timarker);
+			}
 		}
 	}
 	
-	protected void removeAnnotation(Object annotation) {
+	protected void selectAnnotation(Object annotation) {
 		if (annotation instanceof AnnotationProxy) {
-			Marker removedMarker = ((AnnotationProxy)annotation).getMarker();
-			for (int i = 0; i < markers.size(); i++) {
-				Marker marker = markers.get(i);
-				if (removedMarker.equals(marker)) {
-					marker.remove();
-					markers.remove(i);
-					return;
-				}
+			AnnotationProxy proxy = (AnnotationProxy)annotation;
+			if (proxy.getTiMarker() != null) {
+				((AnnotationProxy)annotation).showInfo();
 			}
 		}
+		
 		if (annotation instanceof String) {
-			String title = (String)annotation;
-			for (int i = 0; i < markers.size(); i++) {
-				Marker marker = markers.get(i);
-				if (marker.getTitle().equals(title)) {
-					marker.remove();
-					markers.remove(i);
-					return;
-				}
+			String title = (String) annotation;
+			TiMarker marker = findMarkerByTitle(title);
+			if (marker != null) {
+				marker.getMarker().showInfoWindow();
+			}
+
+		}
+	}
+	
+	protected void deselectAnnotation(Object annotation) {
+		if (annotation instanceof AnnotationProxy) {
+			AnnotationProxy proxy = (AnnotationProxy)annotation;
+			if (proxy.getTiMarker() != null) {
+				((AnnotationProxy)annotation).hideInfo();
 			}
 		}
+		
+		if (annotation instanceof String) {
+			String title = (String) annotation;
+			TiMarker marker = findMarkerByTitle(title);
+			if (marker != null) {
+				marker.getMarker().hideInfoWindow();
+			}
+		}
+	}
+
+	private AnnotationProxy getProxyByMarker(Marker m) {
+		for (int i = 0; i < timarkers.size(); i++) {
+			TiMarker timarker = timarkers.get(i);
+			if (m.equals(timarker.getMarker())){
+				return timarker.getProxy();
+			}
+		}
+		return null;
+	}
+	@Override
+	public boolean onMarkerClick(Marker marker) {
+		AnnotationProxy annoProxy = getProxyByMarker(marker);
+		KrollDict d = new KrollDict();
+		d.put(TiC.PROPERTY_TITLE, marker.getTitle());
+		d.put(TiC.PROPERTY_SUBTITLE, marker.getSnippet());
+		d.put(TiC.PROPERTY_LATITUDE, marker.getPosition().latitude);
+		d.put(TiC.PROPERTY_LONGITUDE, marker.getPosition().longitude);
+		d.put(TiC.PROPERTY_ANNOTATION, annoProxy);
+		d.put(TiC.EVENT_PROPERTY_CLICKSOURCE, annoProxy);
+		proxy.fireEvent(TiC.EVENT_CLICK, d);
+		return false;
+	}
+
+	@Override
+	public void onMapClick(LatLng point) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }
