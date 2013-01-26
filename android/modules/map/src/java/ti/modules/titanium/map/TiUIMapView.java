@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
+import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.TiConvert;
@@ -28,6 +29,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 	protected boolean animate = false;
 	protected boolean preLayout = true;
 	protected ArrayList<TiMarker> timarkers;
+	protected AnnotationProxy selectedAnnotation;
 	
 	private static final String TRAFFIC = "traffic";
 
@@ -289,7 +291,8 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		if (annotation instanceof AnnotationProxy) {
 			AnnotationProxy proxy = (AnnotationProxy)annotation;
 			if (proxy.getTiMarker() != null) {
-				((AnnotationProxy)annotation).showInfo();
+				proxy.showInfo();
+				selectedAnnotation = proxy;
 			}
 		}
 		
@@ -298,6 +301,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 			TiMarker marker = findMarkerByTitle(title);
 			if (marker != null) {
 				marker.getMarker().showInfoWindow();
+				selectedAnnotation = marker.getProxy();
 			}
 
 		}
@@ -318,6 +322,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 				marker.getMarker().hideInfoWindow();
 			}
 		}
+		selectedAnnotation = null;
 	}
 
 	private AnnotationProxy getProxyByMarker(Marker m) {
@@ -329,24 +334,53 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		}
 		return null;
 	}
-	@Override
-	public boolean onMarkerClick(Marker marker) {
-		AnnotationProxy annoProxy = getProxyByMarker(marker);
+	
+	public void fireClickEvent(Marker marker, AnnotationProxy annoProxy, Object clickSource) {
 		KrollDict d = new KrollDict();
 		d.put(TiC.PROPERTY_TITLE, marker.getTitle());
 		d.put(TiC.PROPERTY_SUBTITLE, marker.getSnippet());
 		d.put(TiC.PROPERTY_LATITUDE, marker.getPosition().latitude);
 		d.put(TiC.PROPERTY_LONGITUDE, marker.getPosition().longitude);
 		d.put(TiC.PROPERTY_ANNOTATION, annoProxy);
-		d.put(TiC.EVENT_PROPERTY_CLICKSOURCE, annoProxy);
+		d.put("map", proxy);
+		d.put(TiC.PROPERTY_TYPE, TiC.EVENT_CLICK);
+		d.put(TiC.PROPERTY_SOURCE, proxy);
+		d.put(TiC.EVENT_PROPERTY_CLICKSOURCE, clickSource);
 		proxy.fireEvent(TiC.EVENT_CLICK, d);
-		return false;
+	}
+
+	@Override
+	public boolean onMarkerClick(Marker marker) {
+		AnnotationProxy annoProxy = getProxyByMarker(marker);
+		if (selectedAnnotation == null) {
+			annoProxy.showInfo();
+			selectedAnnotation = annoProxy;
+		} else if (!selectedAnnotation.equals(annoProxy)) {
+			selectedAnnotation.hideInfo();
+			annoProxy.showInfo();
+			selectedAnnotation = annoProxy;
+		} else {
+			selectedAnnotation.hideInfo();
+			selectedAnnotation = null;
+		}
+		fireClickEvent(marker, annoProxy, annoProxy);
+		return true;
 	}
 
 	@Override
 	public void onMapClick(LatLng point) {
-		// TODO Auto-generated method stub
+		if (selectedAnnotation != null) {
+			fireClickEvent(selectedAnnotation.getTiMarker().getMarker(), selectedAnnotation, null);
+			selectedAnnotation = null;
+		}
 		
+	}
+	
+	public void release() {
+		selectedAnnotation = null;
+		map.clear();
+		map = null;
+		timarkers.clear();
 	}
 
 }
