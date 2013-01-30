@@ -1,12 +1,17 @@
 package ti.modules.titanium.map;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
+import org.appcelerator.kroll.common.AsyncResult;
+import org.appcelerator.kroll.common.TiMessenger;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.util.TiConvert;
+
+import android.os.Message;
 
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Polyline;
@@ -15,8 +20,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 @Kroll.proxy(creatableInModule=MapModule.class, propertyAccessors = {
 	"points",
 	TiC.PROPERTY_COLOR,
-	TiC.PROPERTY_WIDTH,
-	TiC.PROPERTY_VISIBLE
+	TiC.PROPERTY_WIDTH
 })
 public class RouteProxy extends KrollProxy{
 	
@@ -24,20 +28,57 @@ public class RouteProxy extends KrollProxy{
 	private Polyline route;
 	
 	private static final String POINTS = "points";
+	
+	private static final int MSG_FIRST_ID = KrollProxy.MSG_LAST_ID + 1;
+	
+	private static final int MSG_SET_POINTS = MSG_FIRST_ID + 400;
+	private static final int MSG_SET_COLOR = MSG_FIRST_ID + 401;
+	private static final int MSG_SET_WIDTH = MSG_FIRST_ID + 402;
 
 	public RouteProxy() {
 		super();
-		options = new PolylineOptions();
 	}
 	
 	public RouteProxy(TiContext tiContext) {
 		this();
 	}
 	
+	public boolean handleMessage(Message msg) 
+	{
+		AsyncResult result = null;
+		switch (msg.what) {
+
+		case MSG_SET_POINTS: {
+			result = (AsyncResult) msg.obj;
+			route.setPoints(processPoints(result.getArg(), true));
+			result.setResult(null);
+			return true;
+		}
+		
+		case MSG_SET_COLOR: {
+			result = (AsyncResult) msg.obj;
+			route.setColor((Integer)result.getArg());
+			result.setResult(null);
+			return true;
+		}
+		
+		case MSG_SET_WIDTH: {
+			result = (AsyncResult) msg.obj;
+			route.setWidth((Float)result.getArg());
+			result.setResult(null);
+			return true;
+		}
+		default : {
+			return super.handleMessage(msg);
+		}
+		}
+	}
 	public void processOptions() {
 
+		options = new PolylineOptions();
+
 		if (hasProperty(POINTS)) {
-			 processPoints(getProperty(POINTS));
+			 processPoints(getProperty(POINTS), false);
 		}
 		
 		if (hasProperty(TiC.PROPERTY_WIDTH)) {
@@ -45,12 +86,14 @@ public class RouteProxy extends KrollProxy{
 		}
 		
 		if (hasProperty(TiC.PROPERTY_COLOR)) {
-			options.color(TiConvert.toColor(TiC.PROPERTY_COLOR));
+			options.color(TiConvert.toColor((String)getProperty(TiC.PROPERTY_COLOR)));
 		}
 		
 	}
 
-	public void processPoints(Object points) {
+	public ArrayList<LatLng> processPoints(Object points, boolean list) {
+		
+		ArrayList<LatLng> locationArray = new ArrayList<LatLng>();
 		//multiple points
 		if (points instanceof Object[]) {
 			Object[] pointsArray = (Object[]) points;
@@ -59,7 +102,11 @@ public class RouteProxy extends KrollProxy{
 				if (obj instanceof HashMap<?, ?>) {
 					HashMap<String, String> point = (HashMap<String, String>) obj;
 					LatLng location = new LatLng(TiConvert.toDouble(point.get("latitude")), TiConvert.toDouble(point.get("longitude")));
-					options.add(location);
+					if (list) {
+						locationArray.add(location);
+					} else {
+						options.add(location);
+					}
 				}
 			}
 		}
@@ -67,8 +114,13 @@ public class RouteProxy extends KrollProxy{
 		if (points instanceof HashMap) {
 			HashMap<String, String> point = (HashMap<String, String>) points;
 			LatLng location = new LatLng(TiConvert.toDouble(point.get("latitude")), TiConvert.toDouble(point.get("longitude")));
-			options.add(location);
+			if (list) {
+				locationArray.add(location);
+			} else {
+				options.add(location);
+			}
 		}
+		return locationArray;
 	}
 	
 	public PolylineOptions getOptions() {
@@ -85,5 +137,22 @@ public class RouteProxy extends KrollProxy{
 	
 	public void onPropertyChanged(String name, Object value) {
 		super.onPropertyChanged(name, value);
+		if (route == null) {
+			return;
+		}
+		
+		if (name.equals(POINTS)) {
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SET_POINTS), value);
+		}
+
+		if (name.equals(TiC.PROPERTY_COLOR)) {
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SET_COLOR), TiConvert.toColor((String)value));
+		}
+		
+		if (name.equals(TiC.PROPERTY_WIDTH)) {
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SET_WIDTH), TiConvert.toFloat(value));
+		}
+		
 	}
+	
 }

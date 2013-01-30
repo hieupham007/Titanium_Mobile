@@ -311,12 +311,12 @@ public class ViewProxy extends TiViewProxy
 	}
 	
 	@Kroll.method
-	public void addRoute(Object route) {
+	public void addRoute(RouteProxy route) {
 		
 		if (TiApplication.isUIThread()) {
 			handleAddRoute(route);
 		} else {
-			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_ADD_ROUTE, route));
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_ADD_ROUTE), route);
 
 		}
 	}
@@ -358,7 +358,7 @@ public class ViewProxy extends TiViewProxy
 		if (TiApplication.isUIThread()) {
 			handleRemoveRoute(route);
 		} else {
-			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_REMOVE_ROUTE, route));
+			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_REMOVE_ROUTE), route);
 
 		}
 	}
