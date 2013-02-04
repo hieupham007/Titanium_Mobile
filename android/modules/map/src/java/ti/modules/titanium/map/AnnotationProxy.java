@@ -1,12 +1,10 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2013 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2013 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
 package ti.modules.titanium.map;
-
-import java.lang.ref.WeakReference;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
@@ -19,7 +17,6 @@ import org.appcelerator.titanium.util.TiConvert;
 
 import android.os.Message;
 
-import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -30,7 +27,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 	TiC.PROPERTY_TITLE,
 	TiC.PROPERTY_LATITUDE,
 	TiC.PROPERTY_LONGITUDE,
-	TiC.PROPERTY_DRAGGABLE,
+	MapModule.PROPERTY_DRAGGABLE,
 	TiC.PROPERTY_IMAGE,
 	TiC.PROPERTY_PINCOLOR
 })
@@ -70,6 +67,7 @@ public class AnnotationProxy extends KrollProxy
 		return table;
 	}
 	
+	@Override
 	public boolean handleMessage(Message msg) 
 	{
 		AsyncResult result = null;
@@ -140,8 +138,8 @@ public class AnnotationProxy extends KrollProxy
 		if (hasProperty(TiC.PROPERTY_SUBTITLE)) {
 			markerOptions.snippet(TiConvert.toString(getProperty(TiC.PROPERTY_SUBTITLE)));
 		}
-		if (hasProperty(TiC.PROPERTY_DRAGGABLE)) {
-			markerOptions.draggable(TiConvert.toBoolean(getProperty(TiC.PROPERTY_DRAGGABLE)));
+		if (hasProperty(MapModule.PROPERTY_DRAGGABLE)) {
+			markerOptions.draggable(TiConvert.toBoolean(getProperty(MapModule.PROPERTY_DRAGGABLE)));
 		}
 		//image and pincolor must be defined before adding to mapview. Once added, their values are final.
 		if (hasProperty(TiC.PROPERTY_IMAGE)) {
@@ -186,6 +184,7 @@ public class AnnotationProxy extends KrollProxy
 		}
 	}
 	
+	@Override
 	public void onPropertyChanged(String name, Object value) {
 		super.onPropertyChanged(name, value);
 		
@@ -205,7 +204,7 @@ public class AnnotationProxy extends KrollProxy
 		if (name.equals(TiC.PROPERTY_SUBTITLE)) {
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SET_SUBTITLE), TiConvert.toString(value));
 		}
-		if (name.equals(TiC.PROPERTY_DRAGGABLE)) {
+		if (name.equals(MapModule.PROPERTY_DRAGGABLE)) {
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SET_DRAGGABLE), TiConvert.toBoolean(value));
 		}
 		

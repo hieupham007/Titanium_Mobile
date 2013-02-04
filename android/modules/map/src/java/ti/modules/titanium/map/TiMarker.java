@@ -21,6 +21,9 @@ public class TiMarker {
 	}
 	
 	public AnnotationProxy getProxy() {
+		if (proxy == null) {
+			return null;
+		}
 		return proxy.get();
 	}
 }

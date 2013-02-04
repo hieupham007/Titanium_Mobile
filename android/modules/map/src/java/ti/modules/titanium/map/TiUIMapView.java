@@ -5,7 +5,6 @@ import java.util.HashMap;
 
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
-import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.TiConvert;
@@ -31,9 +30,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 	protected ArrayList<TiMarker> timarkers;
 	protected AnnotationProxy selectedAnnotation;
 	
-	private static final String TRAFFIC = "traffic";
 
-	public static final int MSG_VIEW_CREATED = 600;
 	public TiUIMapView(final TiViewProxy proxy, Activity activity) {
 		super(proxy, activity);
 		timarkers = new ArrayList<TiMarker>();
@@ -60,18 +57,22 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 	}
 	
 	protected void onViewCreated() {
+		map = acquireMap();
 		processMapProperties(proxy.getProperties());
 		processPreloadAnnotations();
 		processPreloadRoutes();
-		getMap().setOnMarkerClickListener(this);
-		getMap().setOnMapClickListener(this);
+		map.setOnMarkerClickListener(this);
+		map.setOnMapClickListener(this);
+
+		((ViewProxy)proxy).clearPreloadObjects();
+		proxy.fireEvent(TiC.EVENT_COMPLETE, null);
 	}
 
 	@Override
 	public void processProperties(KrollDict d) {
 		super.processProperties(d);
 
-		if (getMap() == null) {
+		if (acquireMap() == null) {
 			return;
 		}
 		processMapProperties(d);
@@ -85,8 +86,8 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		if (d.containsKey(TiC.PROPERTY_MAP_TYPE)) {
 			setMapType(d.getInt(TiC.PROPERTY_MAP_TYPE));
 		}
-		if (d.containsKey(TRAFFIC)) {
-			setTrafficEnabled(d.getBoolean(TRAFFIC));
+		if (d.containsKey(MapModule.PROPERTY_TRAFFIC)) {
+			setTrafficEnabled(d.getBoolean(MapModule.PROPERTY_TRAFFIC));
 		}
 		if (d.containsKey(TiC.PROPERTY_ANIMATE)) {
 			animate = d.getBoolean(TiC.PROPERTY_ANIMATE);
@@ -106,43 +107,45 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		if (key.equals(TiC.PROPERTY_USER_LOCATION)) {
 			setUserLocation(TiConvert.toBoolean(newValue));
 		}
-		if (key.equals(TiC.PROPERTY_MAP_TYPE)) {
+		else if (key.equals(TiC.PROPERTY_MAP_TYPE)) {
 			setMapType(TiConvert.toInt(newValue));
 		}
-		if (key.equals(TiC.PROPERTY_REGION)) {
+		else if (key.equals(TiC.PROPERTY_REGION)) {
 			updateCamera((HashMap) newValue);
 		}
-		if (key.equals(TRAFFIC)) {
+		else if (key.equals(MapModule.PROPERTY_TRAFFIC)) {
 			setTrafficEnabled(TiConvert.toBoolean(newValue));
 		}
-		if (key.equals(TiC.PROPERTY_ANIMATE)) {
+		else if (key.equals(TiC.PROPERTY_ANIMATE)) {
 			animate = TiConvert.toBoolean(newValue);
 		}
-		if (key.equals(TiC.PROPERTY_ANNOTATIONS)) {
+		else if (key.equals(TiC.PROPERTY_ANNOTATIONS)) {
 			updateAnnotations((Object[]) newValue);
+		} 
+		else {
+			super.propertyChanged(key, oldValue, newValue, proxy);
 		}
-		super.propertyChanged(key, oldValue, newValue, proxy);
 
 	}
 
+	public GoogleMap acquireMap() {
+		return ((SupportMapFragment) getFragment()).getMap();
+	}
+	
 	public GoogleMap getMap() {
-		if (map == null) {
-			map = ((SupportMapFragment) getFragment()).getMap();
-		}
-
-		return map;		
+		return map;
 	}
 
 	protected void setUserLocation(boolean enabled) {
-		getMap().setMyLocationEnabled(enabled);
+		map.setMyLocationEnabled(enabled);
 	}
 	
 	protected void setMapType(int type) {
-		getMap().setMapType(type);
+		map.setMapType(type);
 	}
 	
 	protected void setTrafficEnabled(boolean enabled) {
-		getMap().setTrafficEnabled(enabled);
+		map.setTrafficEnabled(enabled);
 	}
 	
 	protected void updateCamera(HashMap<String, Object> dict) {
@@ -245,12 +248,15 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		for (int i = 0; i < timarkers.size(); i++) {
 			TiMarker timarker = timarkers.get(i);
 			timarker.getMarker().remove();
-			timarker.getProxy().setTiMarker(null);
+			AnnotationProxy proxy = timarker.getProxy();
+			if (proxy != null) {
+				proxy.setTiMarker(null);
+			}
 		}
 		timarkers.clear();
 	}
 	
-	private TiMarker findMarkerByTitle(String title) {
+	public TiMarker findMarkerByTitle(String title) {
 		for (int i = 0; i < timarkers.size(); i++) {
 			TiMarker timarker = timarkers.get(i);
 			if (timarker.getMarker().getTitle().equals(title)) {
@@ -260,37 +266,22 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		
 		return null;
 	}
+
 	protected void removeAnnotation(Object annotation) {
-		
+		TiMarker timarker = null;
 		if (annotation instanceof TiMarker) {
-			if (timarkers.contains(annotation)) {
-				TiMarker timarker = (TiMarker)annotation;
-				timarker.getMarker().remove();
-				timarker.getProxy().setTiMarker(null);
-				timarkers.remove(annotation);
-			}
+			timarker = (TiMarker)annotation;
+		} else if (annotation instanceof AnnotationProxy) {
+			timarker = ((AnnotationProxy)annotation).getTiMarker();
+		} else if (annotation instanceof String) {
+			timarker = findMarkerByTitle((String)annotation);
 		}
-
-		if (annotation instanceof AnnotationProxy) {
-			TiMarker timarker = ((AnnotationProxy)annotation).getTiMarker();
-			for (int i = 0; i < timarkers.size(); i++) {
-				TiMarker temp = timarkers.get(i);
-				if (timarker.equals(temp)) {
-					temp.getMarker().remove();
-					temp.getProxy().setTiMarker(null);
-					timarkers.remove(i);
-					return;
-				}
-			}
-		}
-
-		if (annotation instanceof String) {
-			String title = (String)annotation;
-			TiMarker timarker = findMarkerByTitle(title);
-			if (timarker != null) {
-				timarker.getMarker().remove();
-				timarker.getProxy().setTiMarker(null);
-				timarkers.remove(timarker);
+		
+		if (timarker != null && timarkers.remove(timarker)) {
+			timarker.getMarker().remove();
+			AnnotationProxy proxy = timarker.getProxy();
+			if (proxy != null) {
+				proxy.setTiMarker(null);
 			}
 		}
 	}
@@ -302,9 +293,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 				proxy.showInfo();
 				selectedAnnotation = proxy;
 			}
-		}
-		
-		if (annotation instanceof String) {
+		} else if (annotation instanceof String) {
 			String title = (String) annotation;
 			TiMarker marker = findMarkerByTitle(title);
 			if (marker != null) {
@@ -321,9 +310,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 			if (proxy.getTiMarker() != null) {
 				((AnnotationProxy)annotation).hideInfo();
 			}
-		}
-		
-		if (annotation instanceof String) {
+		} else if (annotation instanceof String) {
 			String title = (String) annotation;
 			TiMarker marker = findMarkerByTitle(title);
 			if (marker != null) {
@@ -369,7 +356,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		d.put(TiC.PROPERTY_LATITUDE, marker.getPosition().latitude);
 		d.put(TiC.PROPERTY_LONGITUDE, marker.getPosition().longitude);
 		d.put(TiC.PROPERTY_ANNOTATION, annoProxy);
-		d.put("map", proxy);
+		d.put(MapModule.PROPERTY_MAP, proxy);
 		d.put(TiC.PROPERTY_TYPE, TiC.EVENT_CLICK);
 		d.put(TiC.PROPERTY_SOURCE, proxy);
 		d.put(TiC.EVENT_PROPERTY_CLICKSOURCE, clickSource);
@@ -403,6 +390,7 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 		
 	}
 	
+	@Override
 	public void release() {
 		selectedAnnotation = null;
 		map.clear();

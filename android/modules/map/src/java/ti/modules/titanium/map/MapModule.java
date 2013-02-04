@@ -21,6 +21,12 @@ public class MapModule extends KrollModule
 	@Kroll.constant public static final int TERRAIN_TYPE = GoogleMap.MAP_TYPE_TERRAIN;
 	@Kroll.constant public static final int SATELLITE_TYPE = GoogleMap.MAP_TYPE_SATELLITE;
 	
+	 public static final String PROPERTY_DRAGGABLE = "draggable";
+	 public static final String PROPERTY_POINTS = "points";
+	 public static final String PROPERTY_TRAFFIC = "traffic";
+	 public static final String PROPERTY_MAP = "map";
+
+	
 	@Kroll.constant public static final float ANNOTATION_AZURE = BitmapDescriptorFactory.HUE_AZURE;
 	@Kroll.constant public static final float ANNOTATION_BLUE = BitmapDescriptorFactory.HUE_BLUE;
 	@Kroll.constant public static final float ANNOTATION_CYAN = BitmapDescriptorFactory.HUE_CYAN;
