@@ -20,6 +20,8 @@ public class MapModule extends KrollModule
 	@Kroll.constant public static final int NORMAL_TYPE = GoogleMap.MAP_TYPE_NORMAL;
 	@Kroll.constant public static final int TERRAIN_TYPE = GoogleMap.MAP_TYPE_TERRAIN;
 	@Kroll.constant public static final int SATELLITE_TYPE = GoogleMap.MAP_TYPE_SATELLITE;
+	@Kroll.constant public static final int HYBRID_TYPE = GoogleMap.MAP_TYPE_HYBRID;
+
 	
 	 public static final String PROPERTY_DRAGGABLE = "draggable";
 	 public static final String PROPERTY_POINTS = "points";
