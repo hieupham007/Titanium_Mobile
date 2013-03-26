@@ -1,6 +1,6 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2012 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2013 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
@@ -27,7 +27,8 @@ import android.os.Message;
 	TiC.PROPERTY_REGION,
 	TiC.PROPERTY_ANNOTATIONS,
 	TiC.PROPERTY_ANIMATE,
-	MapModule.PROPERTY_TRAFFIC
+	MapModule.PROPERTY_TRAFFIC,
+	TiC.PROPERTY_ENABLE_ZOOM_CONTROLS
 })
 public class ViewProxy extends TiViewProxy
 {
