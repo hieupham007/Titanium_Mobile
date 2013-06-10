@@ -8,8 +8,10 @@ package ti.modules.titanium.map;
 
 import org.appcelerator.kroll.KrollModule;
 import org.appcelerator.kroll.annotations.Kroll;
+import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.TiContext;
 
+import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 
@@ -35,6 +37,15 @@ public class MapModule extends KrollModule
 	@Kroll.constant public static final int HYBRID_TYPE = GoogleMap.MAP_TYPE_HYBRID;
 	@Kroll.constant public static final int ANNOTATION_DRAG_STATE_START = 0;
 	@Kroll.constant public static final int ANNOTATION_DRAG_STATE_END = 1;
+	
+	@Kroll.constant public static final int SUCCESS = 0;
+	@Kroll.constant public static final int SERVICE_MISSING = 1;
+	@Kroll.constant public static final int SERVICE_VERSION_UPDATE_REQUIRED = 2;
+	@Kroll.constant public static final int SERVICE_DISABLED = 3;
+	@Kroll.constant public static final int SERVICE_INVALID = 9;
+
+
+
 
 	@Kroll.constant public static final float ANNOTATION_AZURE = BitmapDescriptorFactory.HUE_AZURE;
 	@Kroll.constant public static final float ANNOTATION_BLUE = BitmapDescriptorFactory.HUE_BLUE;
@@ -50,5 +61,10 @@ public class MapModule extends KrollModule
 	public MapModule()
 	{
 		super();
+	}
+	
+	@Kroll.method
+	public int isGoogleServicesAvailable() {
+		return GooglePlayServicesUtil.isGooglePlayServicesAvailable(TiApplication.getAppRootOrCurrentActivity());
 	}
 }

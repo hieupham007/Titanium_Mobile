@@ -16,6 +16,7 @@ import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiC;
 import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.TiConvert;
+import org.appcelerator.titanium.util.TiUIHelper;
 import org.appcelerator.titanium.view.TiUIFragment;
 
 import android.app.Activity;
@@ -24,6 +25,8 @@ import android.support.v4.app.Fragment;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -74,18 +77,41 @@ public class TiUIMapView extends TiUIFragment implements GoogleMap.OnMarkerClick
 
 	protected void onViewCreated()
 	{
-		map = acquireMap();
-		processMapProperties(proxy.getProperties());
-		processPreloadAnnotations();
-		processPreloadRoutes();
-		map.setOnMarkerClickListener(this);
-		map.setOnMapClickListener(this);
-		map.setOnCameraChangeListener(this);
-		map.setOnMarkerDragListener(this);
-		map.setOnInfoWindowClickListener(this);
-		map.setInfoWindowAdapter(this);
-		((ViewProxy) proxy).clearPreloadObjects();
-		proxy.fireEvent(TiC.EVENT_COMPLETE, null);
+		//check if Google Play Services is installed.
+		int isGooglePlayAvailable = GooglePlayServicesUtil.isGooglePlayServicesAvailable(proxy.getActivity());
+		String message = "";
+		switch (isGooglePlayAvailable) {
+			
+			case ConnectionResult.SUCCESS:
+				map = acquireMap();
+				processMapProperties(proxy.getProperties());
+				processPreloadAnnotations();
+				processPreloadRoutes();
+				map.setOnMarkerClickListener(this);
+				map.setOnMapClickListener(this);
+				map.setOnCameraChangeListener(this);
+				map.setOnMarkerDragListener(this);
+				map.setOnInfoWindowClickListener(this);
+				map.setInfoWindowAdapter(this);
+				((ViewProxy) proxy).clearPreloadObjects();
+				proxy.fireEvent(TiC.EVENT_COMPLETE, null);
+				break;
+				
+			case ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED:
+				message = "Google Play Services update required.";
+				break;
+				
+			case ConnectionResult.SERVICE_MISSING:
+				message = "Google Play Services is not installed";
+				break;
+			
+			default:
+				message = "Google Play Services not available";
+		}
+		
+		if (!message.isEmpty()) {
+			TiUIHelper.doOkDialog("Google Play Services", message, null);
+		}
 	}
 
 	@Override
