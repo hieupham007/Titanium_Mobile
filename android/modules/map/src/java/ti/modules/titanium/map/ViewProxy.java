@@ -8,6 +8,7 @@ package ti.modules.titanium.map;
 
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.AsyncResult;
@@ -23,6 +24,7 @@ import android.os.Message;
 
 @Kroll.proxy(creatableInModule = MapModule.class, propertyAccessors = {
 	TiC.PROPERTY_USER_LOCATION,
+	MapModule.PROPERTY_USER_LOCATION_BUTTON,
 	TiC.PROPERTY_MAP_TYPE,
 	TiC.PROPERTY_REGION,
 	TiC.PROPERTY_ANNOTATIONS,
@@ -33,38 +35,34 @@ import android.os.Message;
 public class ViewProxy extends TiViewProxy
 {
 	private static final String TAG = "MapViewProxy";
-		
+
 	private static final int MSG_FIRST_ID = TiViewProxy.MSG_LAST_ID + 1;
-	
+
 	private static final int MSG_ADD_ANNOTATION = MSG_FIRST_ID + 500;
 	private static final int MSG_ADD_ANNOTATIONS = MSG_FIRST_ID + 501;
-	
 	private static final int MSG_REMOVE_ANNOTATION = MSG_FIRST_ID + 502;
 	private static final int MSG_REMOVE_ANNOTATIONS = MSG_FIRST_ID + 503;
 	private static final int MSG_REMOVE_ALL_ANNOTATIONS = MSG_FIRST_ID + 504;
-	
 	private static final int MSG_SELECT_ANNOTATION = MSG_FIRST_ID + 505;
 	private static final int MSG_DESELECT_ANNOTATION = MSG_FIRST_ID + 506;
-	
 	private static final int MSG_ADD_ROUTE = MSG_FIRST_ID + 507;	
 	private static final int MSG_REMOVE_ROUTE = MSG_FIRST_ID + 508;
+	private static final int MSG_CHANGE_ZOOM = MSG_FIRST_ID + 509;
+	private static final int MSG_SET_LOCATION = MSG_FIRST_ID + 510;
 
-
-
-	
 	private ArrayList<AnnotationProxy> preloadAnnotations;
 	private ArrayList<RouteProxy> preloadRoutes;
-	
+
 	public ViewProxy() {
 		super();
 		preloadAnnotations = new ArrayList<AnnotationProxy>();
 		preloadRoutes = new ArrayList<RouteProxy>();
 	}
-	
+
 	public TiUIView createView(Activity activity) {
 		return new TiUIMapView(this, activity);
 	}
-	
+
 	public void clearPreloadObjects() {
 		preloadAnnotations.clear();
 		preloadRoutes.clear();
@@ -82,7 +80,7 @@ public class ViewProxy extends TiViewProxy
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_ADD_ANNOTATIONS: {
 			result = (AsyncResult) msg.obj;
 			handleAddAnnotations((Object[])result.getArg());
@@ -96,46 +94,56 @@ public class ViewProxy extends TiViewProxy
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_REMOVE_ANNOTATIONS: {
 			result = (AsyncResult) msg.obj;
 			handleRemoveAnnotations((Object[])result.getArg());
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_REMOVE_ALL_ANNOTATIONS: {
 			result = (AsyncResult) msg.obj;
 			handleRemoveAllAnnotations();
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_SELECT_ANNOTATION: {
 			result = (AsyncResult) msg.obj;
 			handleSelectAnnotation(result.getArg());
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_DESELECT_ANNOTATION: {
 			result = (AsyncResult) msg.obj;
 			handleDeselectAnnotation(result.getArg());
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_ADD_ROUTE: {
 			result = (AsyncResult) msg.obj;
 			handleAddRoute((RouteProxy)result.getArg());
 			result.setResult(null);
 			return true;
 		}
-		
+
 		case MSG_REMOVE_ROUTE: {
 			result = (AsyncResult) msg.obj;
 			handleRemoveRoute((RouteProxy)result.getArg());
 			result.setResult(null);
+			return true;
+		}
+
+		case MSG_CHANGE_ZOOM: {
+			handleZoom(msg.arg1);
+			return true;
+		}
+
+		case MSG_SET_LOCATION: {
+			handleSetLocation((HashMap) msg.obj);
 			return true;
 		}
 
@@ -144,7 +152,7 @@ public class ViewProxy extends TiViewProxy
 		}
 		}
 	}
-	
+
 
 	public ArrayList<AnnotationProxy> getPreloadAnnotations() {
 		return preloadAnnotations;
@@ -158,7 +166,7 @@ public class ViewProxy extends TiViewProxy
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_ADD_ANNOTATION), annotation);
 		}
 	}
-	
+
 	private void handleAddAnnotation(AnnotationProxy annotation) {
 
 		TiUIView view = peekView();
@@ -174,13 +182,13 @@ public class ViewProxy extends TiViewProxy
 			addPreloadAnnotation(annotation);
 		}
 	}
-	
+
 	private void addPreloadAnnotation(AnnotationProxy anno) {
 		if (!preloadAnnotations.contains(anno)) {
 			preloadAnnotations.add(anno);
 		}
 	}
-	
+
 	@Kroll.method
 	public void addAnnotations(AnnotationProxy[] annotations) {
 		if (TiApplication.isUIThread()) {
@@ -189,7 +197,7 @@ public class ViewProxy extends TiViewProxy
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_ADD_ANNOTATIONS), annotations);
 		}
 	}
-	
+
 	private void handleAddAnnotations(Object[] annotations) {
 		for (int i = 0; i < annotations.length; i++) {
 			Object annotation = annotations[i];
@@ -198,7 +206,7 @@ public class ViewProxy extends TiViewProxy
 			}
 		}
 	}
-	
+
 	@Kroll.method
 	public void removeAllAnnotations() {
 		if (TiApplication.isUIThread()) {
@@ -207,7 +215,7 @@ public class ViewProxy extends TiViewProxy
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_REMOVE_ALL_ANNOTATIONS));
 		}
 	}
-	
+
 	public void handleRemoveAllAnnotations() {
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
@@ -215,7 +223,7 @@ public class ViewProxy extends TiViewProxy
 			mapView.removeAllAnnotations();
 		}
 	}
-	
+
 	public boolean isAnnotationValid(Object annotation) {
 		//Incorrect argument types
 		if (!(annotation instanceof AnnotationProxy || annotation instanceof String)) {
@@ -226,7 +234,7 @@ public class ViewProxy extends TiViewProxy
 		if (annotation instanceof AnnotationProxy && ((AnnotationProxy)annotation).getTiMarker() == null) {
 			return false;
 		}
-		
+
 		if (annotation instanceof String) {
 			TiUIView view = peekView();
 			if (view instanceof TiUIMapView) {
@@ -236,7 +244,7 @@ public class ViewProxy extends TiViewProxy
 				}
 			}
 		}
-		
+
 		return true;
 	}
 	@Kroll.method
@@ -250,9 +258,9 @@ public class ViewProxy extends TiViewProxy
 		} else {
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_REMOVE_ANNOTATION), annotation);
 		}
-		
+
 	}
-	
+
 	@Kroll.method
 	public void removeAnnotations(Object annotations) {
 		if (TiApplication.isUIThread()) {
@@ -261,13 +269,13 @@ public class ViewProxy extends TiViewProxy
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_REMOVE_ANNOTATIONS), annotations);
 		}
 	}
-	
+
 	public void handleRemoveAnnotations(Object[] annotations) {
 		for (int i = 0; i < annotations.length; i++) {
 			removeAnnotation(annotations[i]);
 		}
 	}
-	
+
 	public void handleRemoveAnnotation(Object annotation) {
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
@@ -277,18 +285,18 @@ public class ViewProxy extends TiViewProxy
 			} else {
 				removePreloadAnnotation(annotation);
 			}
-			
+
 		} else {
 			removePreloadAnnotation(annotation);
 		}
 	}
-	
+
 	public void removePreloadAnnotation(Object annotation) {
 		if (annotation instanceof AnnotationProxy && preloadAnnotations.contains(annotation)) {
 			preloadAnnotations.remove(annotation);
 		}
 	}
-	
+
 	@Kroll.method
 	public void selectAnnotation(Object annotation) {
 		if (!isAnnotationValid(annotation)) {
@@ -301,14 +309,14 @@ public class ViewProxy extends TiViewProxy
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SELECT_ANNOTATION), annotation);
 		}
 	}
-	
+
 	public void handleSelectAnnotation(Object annotation) {
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
 			((TiUIMapView)view).selectAnnotation(annotation);
 		}
 	}
-	
+
 	@Kroll.method
 	public void deselectAnnotation(Object annotation) {
 		if (!isAnnotationValid(annotation)) {
@@ -321,17 +329,17 @@ public class ViewProxy extends TiViewProxy
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_DESELECT_ANNOTATION), annotation);
 		}
 	}
-	
+
 	public void handleDeselectAnnotation(Object annotation) {
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
 			((TiUIMapView)view).deselectAnnotation(annotation);
 		}
 	}
-	
+
 	@Kroll.method
 	public void addRoute(RouteProxy route) {
-		
+
 		if (TiApplication.isUIThread()) {
 			handleAddRoute(route);
 		} else {
@@ -339,7 +347,7 @@ public class ViewProxy extends TiViewProxy
 
 		}
 	}
-	
+
 	public void handleAddRoute(Object route) {
 		if (route == null) {
 			return;
@@ -359,19 +367,19 @@ public class ViewProxy extends TiViewProxy
 		}
 
 	}
-	
+
 	public void addPreloadRoute(RouteProxy r) {
 		if (!preloadRoutes.contains(r)) {
 			preloadRoutes.add(r);
 		}
 	}
-	
+
 	public void removePreloadRoute(RouteProxy r) {
 		if (preloadRoutes.contains(r)) {
 			preloadRoutes.remove(r);
 		}
 	}
-	
+
 	@Kroll.method
 	public void removeRoute(RouteProxy route) {
 		if (TiApplication.isUIThread()) {
@@ -381,7 +389,7 @@ public class ViewProxy extends TiViewProxy
 
 		}
 	}
-	
+
 	public void handleRemoveRoute(RouteProxy route) {
 		TiUIView view = peekView();
 		if (view instanceof TiUIMapView) {
@@ -396,8 +404,53 @@ public class ViewProxy extends TiViewProxy
 			removePreloadRoute(route);
 		}
 	}
-	
+
 	public ArrayList<RouteProxy> getPreloadRoutes() {
 		return preloadRoutes;
+	}
+
+	@Kroll.method
+	public void zoom(int delta)
+	{
+		if (TiApplication.isUIThread()) {
+			handleZoom(delta);
+		} else {
+			getMainHandler().obtainMessage(MSG_CHANGE_ZOOM, delta, 0).sendToTarget();
+		}
+	}
+
+	public void handleZoom(int delta)
+	{
+		TiUIView view = peekView();
+		if (view instanceof TiUIMapView) {
+			((TiUIMapView) view).changeZoomLevel(delta);
+		}
+	}
+
+	@Kroll.method
+	public void setLocation(Object location)
+	{
+		if (location instanceof HashMap) {
+			HashMap dict = (HashMap) location;
+			if (!dict.containsKey(TiC.PROPERTY_LATITUDE) || !dict.containsKey(TiC.PROPERTY_LONGITUDE)) {
+				Log.e(TAG, "Unable to set location. Missing latitude or longitude.");
+				return;
+			}
+			if (TiApplication.isUIThread()) {
+				handleSetLocation(dict);
+			} else {
+				getMainHandler().obtainMessage(MSG_SET_LOCATION, location).sendToTarget();
+			}
+		}
+	}
+
+	public void handleSetLocation(HashMap<String, Object> location)
+	{
+		TiUIView view = peekView();
+		if (view instanceof TiUIMapView) {
+			((TiUIMapView) view).updateCamera(location);
+		} else {
+			Log.e(TAG, "Unable set location since the map view has not been created yet. Use setRegion() instead.");
+		}
 	}
 }

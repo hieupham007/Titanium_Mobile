@@ -122,6 +122,8 @@ public abstract class TiUIView
 
 	//to maintain sync visibility between borderview and view. Default is visible
 	private int visibility = View.VISIBLE;
+	
+	protected GestureDetector detector = null;
 
 
 	/**
@@ -379,15 +381,16 @@ public abstract class TiUIView
 		if (animBuilder == null) {
 			animBuilder = new TiAnimationBuilder();
 		}
-		if (nativeView != null) {
+		View outerView = getOuterView();
+		if (outerView != null) {
 			if (matrix != null) {
 				TiMatrixAnimation matrixAnimation = animBuilder.createMatrixAnimation(matrix);
 				matrixAnimation.interpolate = false;
 				matrixAnimation.setDuration(1);
 				matrixAnimation.setFillAfter(true);
-				nativeView.startAnimation(matrixAnimation);
+				outerView.startAnimation(matrixAnimation);
 			} else {
-				nativeView.clearAnimation();
+				outerView.clearAnimation();
 			}
 		}
 	}
@@ -779,11 +782,6 @@ public abstract class TiUIView
 			});
 			fireEvent(TiC.EVENT_FOCUS, getFocusEventObject(hasFocus));
 		} else {
-			TiMessenger.postOnMain(new Runnable() {
-				public void run() {
-					TiUIHelper.showSoftKeyboard(v, false);
-				}
-			});
 			fireEvent(TiC.EVENT_BLUR, getFocusEventObject(hasFocus));
 		}
 	}
@@ -817,6 +815,11 @@ public abstract class TiUIView
 	{
 		if (nativeView != null) {
 			nativeView.clearFocus();
+			TiMessenger.postOnMain(new Runnable() {
+				public void run() {
+					TiUIHelper.showSoftKeyboard(nativeView, false);
+				}
+			});
 		}
 	}
 
@@ -938,7 +941,8 @@ public abstract class TiUIView
 				applyCustomBackground(false);
 			}
 
-			Drawable bgDrawable = TiUIHelper.buildBackgroundDrawable(
+			if (background != null) {
+				Drawable bgDrawable = TiUIHelper.buildBackgroundDrawable(
 					bg,
 					TiConvert.toBoolean(d, TiC.PROPERTY_BACKGROUND_REPEAT, false),
 					bgColor,
@@ -950,7 +954,8 @@ public abstract class TiUIView
 					bgFocusedColor,
 					gradientDrawable);
 
-			background.setBackgroundDrawable(bgDrawable);
+				background.setBackgroundDrawable(bgDrawable);
+			}
 		}
 	}
 
@@ -974,18 +979,16 @@ public abstract class TiUIView
 					// If the view already has a parent, we need to detach it from the parent
 					// and add the borderView to the parent as the child
 					ViewGroup savedParent = null;
-					android.view.ViewGroup.LayoutParams savedLayoutParams = null;
 					if (nativeView.getParent() != null) {
 						ViewParent nativeParent = nativeView.getParent();
 						if (nativeParent instanceof ViewGroup) {
 							savedParent = (ViewGroup) nativeParent;
-							savedLayoutParams = savedParent.getLayoutParams();
 							savedParent.removeView(nativeView);
 						}
 					}
 					borderView.addView(nativeView, params);
 					if (savedParent != null) {
-						savedParent.addView(getOuterView(), savedLayoutParams);
+						savedParent.addView(borderView, getLayoutParams());
 					}
 					borderView.setVisibility(this.visibility);
 				}
@@ -1082,7 +1085,7 @@ public abstract class TiUIView
 
 	public View getOuterView()
 	{
-		return borderView == null ? nativeView : borderView;
+		return borderView == null ? getNativeView() : borderView;
 	}
 
 	public void registerForTouch()
@@ -1140,7 +1143,7 @@ public abstract class TiUIView
 				}
 			});
 
-		final GestureDetector detector = new GestureDetector(touchable.getContext(), new SimpleOnGestureListener()
+		detector = new GestureDetector(touchable.getContext(), new SimpleOnGestureListener()
 		{
 			@Override
 			public boolean onDoubleTap(MotionEvent e)

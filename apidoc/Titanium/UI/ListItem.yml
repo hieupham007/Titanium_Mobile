@@ -53,13 +53,13 @@ description: |
     Unlike other views, you cannot use the `addEventListener` method to bind callbacks to events for a
     ListItem.
 
-    Use the ListView's [itemclick](Titanium.UI.ListView.itemclick) event to monitor click events on
+    Use list view's [itemclick](Titanium.UI.ListView.itemclick) event to monitor click events on
     items in the list view. Do not rely on the `source` property to determine which item fired the
     event.  Either use the `sectionIndex` and `itemIndex`, or the `itemId` to determine the list item
     that generated the event, and use the `bindId` to check which child control fired the event.
     See "Default List Item" for an example of using the `itemclick` event.
 
-    To monitor events that bubble to the ListItem or to monitor events of the view subcomponents,
+    To monitor events that bubble to the `ListItem` or to monitor events of the view subcomponents,
     bind them to the item by using the `events` dictionary of the item template or the child view
     templates, respectively. Add the bindings as key-value pairs, where the key is the event name
     and the value is the callback (or array of callbacks for multiple bindings). See "List Items
@@ -77,6 +77,7 @@ properties:
   - name: itemId
     summary: A user defined string that gets passed to events.
     type: String
+    accessors: false
 
   - name: accessoryType
     summary: Sets an accessory on the right side of an item.
@@ -88,6 +89,7 @@ properties:
         or <Titanium.UI.LIST_ACCESSORY_TYPE_NONE>.
     type: Number
     default: Titanium.UI.LIST_ACCESSORY_TYPE_NONE
+    accessors: false
 
   - name: allowsSelection
     summary: Determines whether this item can be selected.
@@ -100,6 +102,7 @@ properties:
     type: Boolean
     default: true
     platforms: [iphone, ipad]
+    accessors: false
 
   - name: backgroundColor
     summary: Background color of the view, as a color name or hex triplet.
@@ -107,6 +110,7 @@ properties:
         For information about color values, see the "Colors" section of <Titanium.UI>.
     type: String
     default: Transparent
+    accessors: false
 
   - name: color
     summary: Default text color of the item when not selected, as a color name or hex triplet.
@@ -117,6 +121,7 @@ properties:
 
         Only applies to the built-in templates.
     type: String
+    accessors: false
 
   - name: font
     summary: Font to use for the item title.
@@ -124,6 +129,7 @@ properties:
         Only applies to the built-in templates.
     type: Font
     default: System default font.
+    accessors: false
 
   - name: height
     summary: Row height in platform-specific units.
@@ -132,6 +138,7 @@ properties:
 
         On iOS, the value can only be an absolute value.
     type: [Number,String]
+    accessors: false
 
   - name: image
     summary: Image to render in the image area of the item, specified as a local path or URL.
@@ -146,12 +153,14 @@ properties:
         `defaultItemTemplate` property is either: <Titanium.UI.LIST_ITEM_TEMPLATE_DEFAULT>,
         <Titanium.UI.LIST_ITEM_TEMPLATE_SETTINGS> or <Titanium.UI.LIST_ITEM_TEMPLATE_SUBTITLE>.
     type: String
+    accessors: false
 
   - name: title
     summary: Title to set in the text area of the item.
     description: |
         This title only appears for the built-in templates.
     type: String
+    accessors: false
 
   - name: selectionStyle
     summary: Selection style constant to control the selection color.
@@ -159,6 +168,7 @@ properties:
         Specify one of the constants from <Titanium.UI.iPhone.ListViewCellSelectionStyle>.
     type: Number
     platforms: [iphone,ipad]
+    accessors: false
 
   - name: subtitle
     summary: Subtitle to set in the text area of the item.
@@ -168,6 +178,7 @@ properties:
         <Titanium.UI.LIST_ITEM_TEMPLATE_SETTINGS> or <Titanium.UI.LIST_ITEM_TEMPLATE_SUBTITLE>.
     type: String
     platforms: [iphone,ipad]
+    accessors: false
 
 examples:
   - title: Default List Items
@@ -257,8 +268,11 @@ examples:
                 events: {click: toggleCheck }
             };
 
-            // The following API calls are equivalent to using jQuery.extend(true, {}, oldObject)
-            // Copy the plainTemplate
+            /*
+               The following JSON API calls copy the plainTemplate object minus functions.
+               This method of copying an object is simple but not quick.
+               If performance is a factor, create your own method to copy an object.
+            */
             var redTemplate = JSON.parse(JSON.stringify(plainTemplate));
             // Change the text color to red
             redTemplate.childTemplates[1].properties.color = 'red';
@@ -413,7 +427,8 @@ properties:
   - name: properties
     type: Dictionary<Titanium.UI.ListItem>
     summary: |
-        Contains key-value pairs of view properties and their values that are applied to the ListItem.
+        Contains key-value pairs of view properties and their values that are applied to the
+        `ListItem`.
     description: |
         If there are properties set in the <ItemTemplate> (not the children view templates),
         the values set in the list data item override the template's properties.

@@ -12,13 +12,11 @@ var ti = require('titanium-sdk'),
 	__n = i18n.__n,
 	cleanCSS = require('clean-css'),
 	afs = appc.fs,
-	xml = appc.xml,
 	parallel = appc.async.parallel,
 	UglifyJS = require('uglify-js'),
 	fs = require('fs'),
 	path = require('path'),
 	wrench = require('wrench'),
-	DOMParser = require('xmldom').DOMParser,
 	jsExtRegExp = /\.js$/,
 	HTML_HEADER = [
 		'<!--',
@@ -141,7 +139,6 @@ function build(logger, config, cli, finished) {
 	this.locales = [];
 	this.appNames = {};
 	this.splashHtml = '';
-	this.codeProcessor = cli.codeProcessor;
 
 	var pkgJson = this.readTiPackageJson();
 	this.packages = [{
@@ -189,6 +186,9 @@ function build(logger, config, cli, finished) {
 		// that build.pre.compile was fired.
 		ti.validateAppJsExists(this.projectDir, this.logger);
 
+		// Note: code processor is a pre-compile hook
+		this.codeProcessor = cli.codeProcessor;
+
 		parallel(this, [
 			'copyFiles',
 			'findProjectDependencies'
@@ -227,7 +227,7 @@ function build(logger, config, cli, finished) {
 			});
 		});
 	}.bind(this));
-};
+}
 
 build.prototype = {
 
@@ -256,7 +256,18 @@ build.prototype = {
 		this.logger.info(__('Copying project files'));
 		if (afs.exists(this.buildDir)) {
 			this.logger.debug(__('Deleting existing build directory'));
-			wrench.rmdirSyncRecursive(this.buildDir);
+			try {
+				wrench.rmdirSyncRecursive(this.buildDir);
+			} catch (e) {
+				this.logger.error(__('Failed to remove build directory "%s".', this.buildDir));
+				if (e.message.indexOf('resource busy or locked') != -1) {
+					this.logger.error(__('Build directory is busy or locked'));
+					this.logger.error(__('Check that you don\'t have any terminal sessions or programs with open files in the build directory') + '\n');
+				} else {
+					this.logger.error(e.message + '\n');
+				}
+				process.exit(1);
+			}
 		}
 		wrench.mkdirSyncRecursive(this.buildDir);
 		afs.copyDirSyncRecursive(this.mobilewebThemeDir, this.buildDir + '/themes', { preserve: true, logger: this.logger.debug });
@@ -361,7 +372,7 @@ build.prototype = {
 		this.logger.info(__n('Searching for %s Titanium Module', 'Searching for %s Titanium Modules', this.tiapp.modules.length));
 		appc.timodule.find(this.tiapp.modules, 'mobileweb', this.deployType, this.titaniumSdkVersion, this.moduleSearchPaths, this.logger, function (modules) {
 			if (modules.missing.length) {
-				this.logger.error(__('Could not find all required Titanium Modules:'))
+				this.logger.error(__('Could not find all required Titanium Modules:'));
 				modules.missing.forEach(function (m) {
 					this.logger.error('   id: ' + m.id + '\t version: ' + (m.version || 'latest') + '\t platform: ' + m.platform + '\t deploy-type: ' + m.deployType);
 				}, this);
@@ -405,7 +416,7 @@ build.prototype = {
 
 				var libDir = ((pkgJson.directories && pkgJson.directories.lib) || '').replace(/^\//, '');
 
-				var mainFilePath = path.join(moduleDir, libDir, (pkgJson.main || '').replace(jsExtRegExp, '') + '.js')
+				var mainFilePath = path.join(moduleDir, libDir, (pkgJson.main || '').replace(jsExtRegExp, '') + '.js');
 				if (!afs.exists(mainFilePath)) {
 					this.logger.error(__('Invalid Titanium Mobile Module "%s": unable to find main file "%s"', module.id, pkgJson.main) + '\n');
 					process.exit(1);

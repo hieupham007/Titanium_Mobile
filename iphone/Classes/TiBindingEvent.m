@@ -113,10 +113,10 @@ void TiBindingEventSetBubbles(TiBindingEvent event, bool bubbles)
 
 TiProxy * TiBindingEventNextBubbleTargetProxy(TiBindingEvent event, TiProxy * currentTarget, BOOL parentOnly)
 {
-	while (![currentTarget _hasListeners:event->eventString] || parentOnly)
+	while ( (currentTarget != nil) && (![currentTarget _hasListeners:event->eventString] || parentOnly) )
 	{
-		if (![currentTarget bubbleParent] || !event->bubbles || event->cancelBubble)
-		{ //If currentTarget is nil, this triggers as well.
+		if (!currentTarget->_bubbleParent || !event->bubbles || event->cancelBubble)
+		{
 			return nil;
 		}
 		parentOnly = false;
@@ -255,11 +255,11 @@ void TiBindingEventProcess(TiBindingRunLoop runloop, void * payload)
 
 			TiObjectSetProperty(context, eventObjectRef, jsEventSuccessStringRef, successValue, kTiPropertyAttributeReadOnly, NULL);
 			TiObjectSetProperty(context, eventObjectRef, jsEventErrorCodeStringRef, codeValue, kTiPropertyAttributeReadOnly, NULL);
+		}
 
-			if (event->errorMessageStringRef != NULL) {
-				TiValueRef eventStringValueRef = TiValueMakeString(context, event->eventStringRef);
-				TiObjectSetProperty(context, eventObjectRef, jsEventErrorMessageStringRef, eventStringValueRef, kTiPropertyAttributeReadOnly, NULL);
-			}
+		if (event->errorMessageStringRef != NULL) {
+			TiValueRef eventStringValueRef = TiValueMakeString(context, event->eventStringRef);
+			TiObjectSetProperty(context, eventObjectRef, jsEventErrorMessageStringRef, eventStringValueRef, kTiPropertyAttributeReadOnly, NULL);
 		}
 		
 		TiObjectSetProperty(context, eventObjectRef, jsEventCancelBubbleStringRef, cancelBubbleValue, kTiPropertyAttributeNone, NULL);

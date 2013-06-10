@@ -16,22 +16,25 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 @Kroll.module
 public class MapModule extends KrollModule
 {
-
-	@Kroll.constant public static final int NORMAL_TYPE = GoogleMap.MAP_TYPE_NORMAL;
-	@Kroll.constant public static final int TERRAIN_TYPE = GoogleMap.MAP_TYPE_TERRAIN;
-	@Kroll.constant public static final int SATELLITE_TYPE = GoogleMap.MAP_TYPE_SATELLITE;
-	@Kroll.constant public static final int HYBRID_TYPE = GoogleMap.MAP_TYPE_HYBRID;
-
-
 	public static final String PROPERTY_DRAGGABLE = "draggable";
 	public static final String PROPERTY_POINTS = "points";
 	public static final String PROPERTY_TRAFFIC = "traffic";
 	public static final String PROPERTY_MAP = "map";
 	public static final String PROPERTY_NEWSTATE = "newState";
 	public static final String PROPERTY_CUSTOM_VIEW = "customView";
+	public static final String PROPERTY_PIN = "pin";
+	public static final String PROPERTY_INFO_WINDOW = "infoWindow";
+	public static final String PROPERTY_LEFT_PANE = "leftPane";
+	public static final String PROPERTY_RIGHT_PANE = "rightPane";
+	public static final String PROPERTY_USER_LOCATION_BUTTON = "userLocationButton";
 	public static final String EVENT_PIN_CHANGE_DRAG_STATE = "pinchangedragstate";
 
-
+	@Kroll.constant public static final int NORMAL_TYPE = GoogleMap.MAP_TYPE_NORMAL;
+	@Kroll.constant public static final int TERRAIN_TYPE = GoogleMap.MAP_TYPE_TERRAIN;
+	@Kroll.constant public static final int SATELLITE_TYPE = GoogleMap.MAP_TYPE_SATELLITE;
+	@Kroll.constant public static final int HYBRID_TYPE = GoogleMap.MAP_TYPE_HYBRID;
+	@Kroll.constant public static final int ANNOTATION_DRAG_STATE_START = 0;
+	@Kroll.constant public static final int ANNOTATION_DRAG_STATE_END = 1;
 
 	@Kroll.constant public static final float ANNOTATION_AZURE = BitmapDescriptorFactory.HUE_AZURE;
 	@Kroll.constant public static final float ANNOTATION_BLUE = BitmapDescriptorFactory.HUE_BLUE;
@@ -44,21 +47,8 @@ public class MapModule extends KrollModule
 	@Kroll.constant public static final float ANNOTATION_VIOLET = BitmapDescriptorFactory.HUE_VIOLET;
 	@Kroll.constant public static final float ANNOTATION_YELLOW = BitmapDescriptorFactory.HUE_YELLOW;
 
-
-	@Kroll.constant public static final int ANNOTATION_DRAG_STATE_START = 0;
-	@Kroll.constant public static final int ANNOTATION_DRAG_STATE_END = 1;
-
-
-
-
-
 	public MapModule()
 	{
 		super();
-	}
-
-	public MapModule(TiContext tiContext)
-	{
-		this();
 	}
 }
