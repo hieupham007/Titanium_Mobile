@@ -57,7 +57,7 @@ public class AnnotationProxy extends KrollProxy
 	// The height of the marker icon in the unit of "px". Will use it to analyze the touch event to find out
 	// the correct clicksource for the click event.
 	private int iconImageHeight = 0;
-
+	private String annoTitle;
 	private static final int MSG_FIRST_ID = KrollProxy.MSG_LAST_ID + 1;
 
 	private static final int MSG_SET_LON = MSG_FIRST_ID + 300;
@@ -69,11 +69,16 @@ public class AnnotationProxy extends KrollProxy
 	{
 		super();
 		markerOptions = new MarkerOptions();
+		annoTitle = "";
 	}
 
 	public AnnotationProxy(TiContext tiContext)
 	{
 		this();
+	}
+	
+	public String getTitle() {
+		return annoTitle;
 	}
 
 	@Override
@@ -161,7 +166,9 @@ public class AnnotationProxy extends KrollProxy
 				infoWindow.setLeftOrRightPane(rightView, TiMapInfoWindow.RIGHT_PANE);
 			}
 			if (hasProperty(TiC.PROPERTY_TITLE)) {
-				infoWindow.setTitle(TiConvert.toString(getProperty(TiC.PROPERTY_TITLE)));
+				String title = TiConvert.toString(getProperty(TiC.PROPERTY_TITLE));
+				annoTitle = title;
+				infoWindow.setTitle(title);
 			} else {
 				infoWindow.setTitle(null);
 			}
@@ -296,7 +303,9 @@ public class AnnotationProxy extends KrollProxy
 		} else if (name.equals(TiC.PROPERTY_LATITUDE)) {
 			TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_SET_LAT), TiConvert.toDouble(value));
 		} else if (name.equals(TiC.PROPERTY_TITLE)) {
-			getOrCreateMapInfoWindow().setTitle(TiConvert.toString(value));
+			String title = TiConvert.toString(value);
+			annoTitle = title;
+			getOrCreateMapInfoWindow().setTitle(title);
 			updateInfoWindow();
 		} else if (name.equals(TiC.PROPERTY_SUBTITLE)) {
 			getOrCreateMapInfoWindow().setSubtitle(TiConvert.toString(value));
