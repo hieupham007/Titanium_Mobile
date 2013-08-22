@@ -77,6 +77,7 @@ public abstract class TiApplication extends Application implements Handler.Callb
 	private static final String PROPERTY_COMPILE_JS = "ti.android.compilejs";
 	private static final String PROPERTY_ENABLE_COVERAGE = "ti.android.enablecoverage";
 	private static final String PROPERTY_DEFAULT_UNIT = "ti.ui.defaultunit";
+	private static final String PROPERTY_USE_LEGACY_WINDOW = "ti.android.useLegacyWindow";
 	private static long lastAnalyticsTriggered = 0;
 	private static long mainThreadId = 0;
 
@@ -89,6 +90,10 @@ public abstract class TiApplication extends Application implements Handler.Callb
 	public static final String APPLICATION_PREFERENCES_NAME = "titanium";
 	public static final String PROPERTY_FASTDEV = "ti.android.fastdev";
 	public static final int TRIM_MEMORY_RUNNING_LOW = 10; // Application.TRIM_MEMORY_RUNNING_LOW for API 16+
+
+	// Whether or not using legacy window. This is set in the application's tiapp.xml with the
+	// "ti.android.useLegacyWindow" property.
+	public static boolean USE_LEGACY_WINDOW = false;
 
 	private boolean restartPending = false;
 	private String baseUrl;
@@ -107,6 +112,7 @@ public abstract class TiApplication extends Application implements Handler.Callb
 	private TiResponseCache responseCache;
 	private BroadcastReceiver externalStorageReceiver;
 	private AccessibilityManager accessibilityManager = null;
+	private boolean forceFinishRootActivity = false;
 
 	protected TiAnalyticsModel analyticsModel;
 	protected Intent analyticsIntent;
@@ -120,6 +126,9 @@ public abstract class TiApplication extends Application implements Handler.Callb
 	public static AtomicBoolean isActivityTransition = new AtomicBoolean(false);
 	protected static ArrayList<ActivityTransitionListener> activityTransitionListeners = new ArrayList<ActivityTransitionListener>();
 	protected static TiWeakList<Activity> activityStack = new TiWeakList<Activity>();
+
+	public TiAnalyticsEvent lastAnalyticsEvent;
+	public String lastEventID;
 
 	public static interface ActivityTransitionListener
 	{
@@ -413,6 +422,7 @@ public abstract class TiApplication extends Application implements Handler.Callb
 		}
 
 		TiConfig.DEBUG = TiConfig.LOGD = systemProperties.getBool("ti.android.debug", false);
+		USE_LEGACY_WINDOW = systemProperties.getBool(PROPERTY_USE_LEGACY_WINDOW, false);
 
 		startExternalStorageMonitor();
 		
@@ -506,7 +516,7 @@ public abstract class TiApplication extends Application implements Handler.Callb
 	{
 		synchronized (this) {
 			Activity currentActivity = getCurrentActivity();
-			if (currentActivity == null || (callingActivity == currentActivity && newValue == null)) {
+			if (currentActivity == null || callingActivity == currentActivity) {
 				this.currentActivity = new WeakReference<Activity>(newValue);
 			}
 		}
@@ -636,10 +646,10 @@ public abstract class TiApplication extends Application implements Handler.Callb
 			Log.i(TAG, "Analytics are disabled, ignoring postAnalyticsEvent", Log.DEBUG_MODE);
 			return;
 		}
-
+		lastAnalyticsEvent = event;
 		if (event.getEventType() == TiAnalyticsEventFactory.EVENT_APP_ENROLL) {
 			if (needsEnrollEvent) {
-				analyticsModel.addEvent(event);
+				lastEventID = analyticsModel.addEvent(event);
 				needsEnrollEvent = false;
 				sendAnalytics();
 				analyticsModel.markEnrolled();
@@ -664,17 +674,17 @@ public abstract class TiApplication extends Application implements Handler.Callb
 					}
 				}
 			}
-			analyticsModel.addEvent(event);
+			lastEventID = analyticsModel.addEvent(event);
 			sendAnalytics();
 			lastAnalyticsTriggered = System.currentTimeMillis();
 			return;
 
 		} else if (event.getEventType() == TiAnalyticsEventFactory.EVENT_APP_END) {
-			analyticsModel.addEvent(event);
+			lastEventID = analyticsModel.addEvent(event);
 			sendAnalytics();
 
 		} else {
-			analyticsModel.addEvent(event);
+			lastEventID = analyticsModel.addEvent(event);
 			long now = System.currentTimeMillis();
 			if (now - lastAnalyticsTriggered >= STATS_WAIT) {
 				sendAnalytics();
@@ -878,6 +888,7 @@ public abstract class TiApplication extends Application implements Handler.Callb
 	public void dispose()
 	{
 		TiActivityWindows.dispose();
+		TiActivitySupportHelpers.dispose();
 		TiFileHelper.getInstance().destroyTempFiles();
 	}
 
@@ -910,6 +921,16 @@ public abstract class TiApplication extends Application implements Handler.Callb
 			accessibilityManager = (AccessibilityManager) getSystemService(Context.ACCESSIBILITY_SERVICE);
 		}
 		return accessibilityManager;
+	}
+
+	public void setForceFinishRootActivity(boolean forced)
+	{
+		forceFinishRootActivity = forced;
+	}
+
+	public boolean getForceFinishRootActivity()
+	{
+		return forceFinishRootActivity;
 	}
 
 	public abstract void verifyCustomModules(TiRootActivity rootActivity);
