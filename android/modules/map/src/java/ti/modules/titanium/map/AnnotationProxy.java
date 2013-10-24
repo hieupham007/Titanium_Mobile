@@ -44,7 +44,9 @@ import com.google.android.gms.maps.model.MarkerOptions;
 	TiC.PROPERTY_LEFT_BUTTON,
 	TiC.PROPERTY_LEFT_VIEW,
 	TiC.PROPERTY_RIGHT_BUTTON,
-	TiC.PROPERTY_RIGHT_VIEW
+	TiC.PROPERTY_RIGHT_VIEW,
+	MapModule.PROPERTY_SHOW_INFO_WINDOW
+
 })
 public class AnnotationProxy extends KrollProxy
 {
@@ -58,6 +60,7 @@ public class AnnotationProxy extends KrollProxy
 	// the correct clicksource for the click event.
 	private int iconImageHeight = 0;
 	private String annoTitle;
+	//private boolean showInfoWindow;
 	private static final int MSG_FIRST_ID = KrollProxy.MSG_LAST_ID + 1;
 
 	private static final int MSG_SET_LON = MSG_FIRST_ID + 300;
@@ -70,6 +73,7 @@ public class AnnotationProxy extends KrollProxy
 		super();
 		markerOptions = new MarkerOptions();
 		annoTitle = "";
+		defaultValues.put(MapModule.PROPERTY_SHOW_INFO_WINDOW, true);
 	}
 
 	public AnnotationProxy(TiContext tiContext)
@@ -138,6 +142,7 @@ public class AnnotationProxy extends KrollProxy
 	{
 		double longitude = 0;
 		double latitude = 0;
+
 		if (hasProperty(TiC.PROPERTY_LONGITUDE)) {
 			longitude = TiConvert.toDouble(getProperty(TiC.PROPERTY_LONGITUDE));
 		}
@@ -288,7 +293,7 @@ public class AnnotationProxy extends KrollProxy
 	{
 		return iconImageHeight;
 	}
-
+	
 	@Override
 	public void onPropertyChanged(String name, Object value)
 	{
