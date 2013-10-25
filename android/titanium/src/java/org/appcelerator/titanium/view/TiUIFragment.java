@@ -58,6 +58,20 @@ public abstract class TiUIFragment extends TiUIView implements Handler.Callback
 		onViewCreated();
 		return true;
 	}
+	
+	 @Override
+     public void release()
+     {
+             if (fragment != null) {
+                     FragmentManager fragmentManager = fragment.getFragmentManager();
+                     if (fragmentManager != null) {
+                    	 FragmentTransaction transaction = fragmentManager.beginTransaction();
+                    	 transaction.remove(fragment);
+                    	 transaction.commit();
+                     }
+             }
+             super.release();
+     }
 
 	protected boolean interceptTouchEvent(MotionEvent ev)
 	{
